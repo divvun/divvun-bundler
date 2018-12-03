@@ -1,0 +1,14 @@
+[package]
+name = "divvun-bundler"
+version = "0.1.0"
+authors = ["Brendan Molloy <brendan@bbqsrc.net>"]
+edition = "2018"
+
+[dependencies]
+# hfst-ospell-rs = { path = "../hfst-ospell-rs" }
+clap = "2.32.0"
+zip = "0.4.2"
+plist = "0.3.0"
+serde = "1.0.80"
+serde_json = "1.0.32"
+serde_derive = "1.0.80"
