@@ -59,8 +59,8 @@ fn main() {
 
 	match matches.value_of("TARGET") {
 		Some("osx") => {
-			println!("Building Mac bundle...");
-			targets::osx::create_bundle(
+			println!("Building Mac installer...");
+			targets::osx::create_installer(
 				lang_tag,
 				bundle_version,
 				bundle_build,

@@ -2,7 +2,7 @@ use std::env;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{self, Path, PathBuf};
-use std::process::{Command, ExitStatus};
+use std::process::Command;
 
 macro_rules! wine_cmd {
 	($x:expr) => {{
@@ -35,7 +35,7 @@ pub fn create_installer(
 
 	let speller_path = output_dir.join("speller.zhfst");
 	info!("Copying speller archive");
-	fs::copy(zhfst_file, speller_path.clone())
+	fs::copy(zhfst_file, &speller_path)
 		.expect("zhfst file to copy successfully");
 
 	{
@@ -57,7 +57,7 @@ pub fn create_installer(
 	let output = wine_cmd!(iscc)
 		.arg(format!("/O{}", output_dir.to_str().unwrap()))
 		.arg(format!("/Ssigntool={} $p", get_signtool_path()))
-		.arg(iss_path.clone())
+		.arg(&iss_path)
 		.output()
 		.expect("process to spawn");
 
