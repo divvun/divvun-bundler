@@ -9,9 +9,11 @@ macro_rules! wine_cmd {
 		if cfg!(windows) {
 			Command::new($x)
 		} else {
-			Command::new("wine").arg($x)
-			}
-		}};
+			let mut cmd = Command::new("wine");
+			cmd.arg($x);
+			cmd
+		}
+	}};
 }
 
 pub fn create_installer(
@@ -26,16 +28,18 @@ pub fn create_installer(
 
 	let zhfst_file = zhfst_file.to_str().expect("valid zhfst path");
 	let installer_path = output_dir.join("installer.iss");
-	let mut iss_file = File::create(&installer_path).expect("iss file to be created");
 
 	info!("Copying speller archive");
 	fs::copy(zhfst_file, output_dir.join("speller.zhfst"))
 		.expect("zhfst file to copy successfully");
 
-	info!("Generating InnoSetup script");
-	iss_file
-		.write_all(make_iss(app_id, bcp47code, version, build, zhfst_file).as_bytes())
-		.expect("iss file to be written");
+	{
+		let mut iss_file = File::create(&installer_path).expect("iss file to be created");
+		info!("Generating InnoSetup script");
+		iss_file
+			.write_all(make_iss(app_id, bcp47code, version, build, zhfst_file).as_bytes())
+			.expect("iss file to be written");
+	}
 
 	let iscc = get_inno_setup_path()
 		.expect("Valid Inno Setup path")
@@ -43,10 +47,9 @@ pub fn create_installer(
 
 	let iss_path = wine_path(&installer_path).expect("valid path to installer");
 
-	// TODO: make wine conditional
 	info!("Building installer binary..");
-	let mut process = Command::new("wine")
-		.arg(iscc)
+
+	let mut process = wine_cmd!(iscc)
 		.arg(format!("/O{}", output_dir.to_str().unwrap()))
 		.arg(iss_path)
 		.spawn()
