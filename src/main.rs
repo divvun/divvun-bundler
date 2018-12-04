@@ -28,6 +28,8 @@ fn main() {
 		(@arg BUNDLE_VERSION: -V +takes_value default_value("1.0.0") "Bundle version")
 		(@arg BUNDLE_BUILD: -B +takes_value default_value("1") "Bundle build")
 		(@arg APP_ID: --uuid +takes_value "App UUID (Windows only)")
+		(@arg SIGN: -R "Whether to sign the created installer")
+		(@arg CERTIFICATE: -c +takes_value "Certificate to be used for signing")
 	)
 	.get_matches();
 
@@ -48,6 +50,12 @@ fn main() {
 
 	let zhfst_path = Path::new(matches.value_of("ZHFST").unwrap());
 	let output_path = Path::new(matches.value_of("OUTPUT").unwrap());
+
+	let sign = matches.is_present("SIGN");
+	let certificate_path = match sign {
+		true => Some(Path::new(matches.value_of("CERTIFICATE").expect("valid certificate path"))),
+		_ => None
+	};
 
 	match matches.value_of("TARGET") {
 		Some("osx") => {
@@ -71,6 +79,7 @@ fn main() {
 				bundle_build,
 				zhfst_path,
 				output_path,
+				certificate_path
 			);
 		}
 		Some(v) => {
