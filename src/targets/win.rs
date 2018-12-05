@@ -1,4 +1,6 @@
+use log::Level::Info;
 use std::env;
+
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{self, Path, PathBuf};
@@ -12,8 +14,8 @@ macro_rules! wine_cmd {
 			let mut cmd = Command::new("wine");
 			cmd.arg($x);
 			cmd
-		}
-	}};
+			}
+		}};
 }
 
 pub fn create_installer(
@@ -23,7 +25,7 @@ pub fn create_installer(
 	build: u64,
 	zhfst_file: &Path,
 	output_dir: &Path,
-	pfx_path: Option<&Path>
+	pfx_path: Option<&Path>,
 ) {
 	fs::create_dir_all(output_dir).expect("output dir to be created");
 
@@ -35,14 +37,24 @@ pub fn create_installer(
 
 	let speller_path = output_dir.join("speller.zhfst");
 	info!("Copying speller archive");
-	fs::copy(zhfst_file, &speller_path)
-		.expect("zhfst file to copy successfully");
+	fs::copy(zhfst_file, &speller_path).expect("zhfst file to copy successfully");
 
 	{
 		let mut iss_file = File::create(&installer_path).expect("iss file to be created");
 		info!("Generating InnoSetup script");
 		iss_file
-			.write_all(make_iss(app_id, &app_name, bcp47code, version, build, pfx_path, sign_pfx_password).as_bytes())
+			.write_all(
+				make_iss(
+					app_id,
+					&app_name,
+					bcp47code,
+					version,
+					build,
+					pfx_path,
+					sign_pfx_password,
+				)
+				.as_bytes(),
+			)
 			.expect("iss file to be written");
 	}
 
@@ -56,7 +68,7 @@ pub fn create_installer(
 
 	let output = wine_cmd!(iscc)
 		.arg(format!("/O{}", output_dir.to_str().unwrap()))
-		.arg(format!("/Ssigntool={} $p", get_signtool_path()))
+		.arg("/Ssigntool=$p")
 		.arg(&iss_path)
 		.output()
 		.expect("process to spawn");
@@ -64,7 +76,10 @@ pub fn create_installer(
 	info!("ISCC output");
 	info!("{}", std::str::from_utf8(&output.stdout).unwrap());
 
-	fs::remove_file(iss_path).expect("to remove installer script");
+	if !log_enabled!(Info) {
+		fs::remove_file(installer_path).expect("to remove installer script");
+	}
+
 	fs::remove_file(speller_path).expect("to remove speller file");
 
 	if !output.status.success() {
@@ -82,18 +97,34 @@ pub fn create_installer(
 }
 
 fn iss_setup_signtool(app_name: &str, pfx_path: &Path, sign_pfx_password: &str) -> String {
+	let signtool_path = get_signtool_path();
+	let pfx_path_wine = wine_path(pfx_path).expect("valid PFX path");
 	if cfg!(windows) {
-		format!("SignTool=signtool sign \
-		          /t http://timestamp.verisign.com/scripts/timstamp.dll \
-				  /f $q{pfx_path}$q \
-				  /p $q{sign_pfx_password}$q \
-				  /d $q{app_name}$q $f", pfx_path = wine_path(pfx_path).expect("valid PFX path"), app_name = app_name, sign_pfx_password = sign_pfx_password)
+		format!(
+			"SignTool=signtool {signtool_path} sign \
+			 /t http://timestamp.verisign.com/scripts/timstamp.dll \
+			 /f $q{pfx_path}$q \
+			 /p $q{sign_pfx_password}$q \
+			 /d $q{app_name}$q $f",
+			pfx_path = pfx_path_wine,
+			app_name = app_name,
+			sign_pfx_password = sign_pfx_password,
+			signtool_path = signtool_path
+		)
 	} else {
-		// TODO
-		// format!(r"SignTool=signtool sign
-		// 		  --pkcs12 $q{pfx_path}$q \
-		// 		  $f", pfx_path = pfx_path, app_name = app_name)
-		unimplemented!()
+		format!(
+			"SignTool=signtool cmd /c {signtool_path} sign \
+			 -pkcs12 $q{pfx_path}$q \
+			 -pass $q{sign_pfx_password}$q \
+			 -n $q{app_name}$q \
+			 -t http://timestamp.verisign.com/scripts/timstamp.dll \
+			 $f \
+			 signed && del $f && move signed $f",
+			pfx_path = pfx_path_wine,
+			app_name = app_name,
+			sign_pfx_password = sign_pfx_password,
+			signtool_path = signtool_path
+		)
 	}
 }
 
@@ -101,19 +132,27 @@ fn get_signtool_path() -> String {
 	if cfg!(windows) {
 		"SignTool".to_string()
 	} else {
-		if let Ok(path) = env::var("OSSLSIGNTOOL_PATH") {
-			path
-		} else {
-			"osslsigntool".to_string()
-		}
+		wine_path(Path::new(
+			&env::var("OSSLSIGNCODE_PATH")
+				.expect("OSSLSIGNCODE_PATH to point to win32 osslsigncode"),
+		))
+		.unwrap()
 	}
 }
 
 fn get_pfx_password() -> String {
-	env::var("SIGN_PFX_PASSWORD").expect("pfx password environment variable")
+	env::var("SIGN_PFX_PASSWORD").expect("SIGN_PFX_PASSWORD environment variable")
 }
 
-fn make_iss(app_id: &str, app_name: &str, bcp47code: &str, version: &str, build: u64, pfx_path: Option<&Path>, sign_pfx_password: Option<String>) -> String {
+fn make_iss(
+	app_id: &str,
+	app_name: &str,
+	bcp47code: &str,
+	version: &str,
+	build: u64,
+	pfx_path: Option<&Path>,
+	sign_pfx_password: Option<String>,
+) -> String {
 	format!(
 		r#"[Setup]
 AppId={app_id}
@@ -135,7 +174,11 @@ Source: "speller.zhfst"; DestDir: "{{app}}"; DestName: "{bcp47code}.zhfst"
 		version = version,
 		build = build,
 		app_name = app_name,
-		sign_tool = pfx_path.map_or("".to_string(), |path| iss_setup_signtool(app_name, &path, &sign_pfx_password.unwrap()))
+		sign_tool = pfx_path.map_or("".to_string(), |path| iss_setup_signtool(
+			app_name,
+			&path,
+			&sign_pfx_password.unwrap()
+		))
 	)
 }
 
@@ -162,6 +205,6 @@ fn wine_path(path: &Path) -> Option<String> {
 		// InnoSetup can't handle extended length paths, Rust prefix absolute paths with \\?\
 		abs_path[4..].to_string()
 	} else {
-		format!("Z:{}", abs_path)
+		format!("Z:{}", abs_path.replace("/", "\\"))
 	})
 }
