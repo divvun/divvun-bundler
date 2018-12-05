@@ -1,0 +1,1 @@
+Precompiled osslsigncode binary from https://sourceforge.net/projects/unix-utils/files/osslsigncode/

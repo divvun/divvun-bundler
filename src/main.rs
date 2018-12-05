@@ -22,18 +22,24 @@ fn main() {
 		(@arg TARGET: -t --target +required +takes_value
 			possible_value("win") possible_value("osx")
 			"Target platform")
-		(@arg TAG: -l +takes_value +required "Language tag in BCP 47 format (eg: sma-Latn-NO)")
-		(@arg ZHFST: -z --zhfst +takes_value +required "ZHFST (Speller) file (eg: se.zhfst)")
-		(@arg OUTPUT: -o --output +takes_value default_value(".") "Output directory")
-		(@arg BUNDLE_VERSION: -V +takes_value default_value("1.0.0") "Bundle version")
-		(@arg BUNDLE_BUILD: -B +takes_value default_value("1") "Bundle build")
 		(@arg APP_ID: --uuid +takes_value "App UUID (Windows only)")
 		(@arg SIGN: -R "Whether to sign the created installer")
 		(@arg CERTIFICATE: -c +takes_value "Certificate to be used for signing")
+		(@arg OUTPUT: -o --output +takes_value default_value(".") "Output directory")
+		(@arg PACKAGE_VERSION: -V +takes_value default_value("1.0.0") "Package version")
+		(@arg PACKAGE_BUILD: -B +takes_value default_value("0") "Package build number")
+
+		(@subcommand speller =>
+			(about: "Build speller installers")
+			(@arg TAG: -l +takes_value +required "Language tag in BCP 47 format (eg: sma-Latn-NO)")
+			(@arg ZHFST: -z --zhfst +takes_value +required "ZHFST (Speller) file (eg: se.zhfst)")
+		)
+		(@subcommand checker =>
+			(about: "Build spell checker installers")
+			(@arg PACKAGE: -P +takes_value +required "Path to the DLL or package")
+		)
 	)
 	.get_matches();
-
-	// TODO: use Clap for CLI
 
 	// let file = File::open("./se.zhfst").unwrap();
 	// let mut archive = ZipArchive::new(file).unwrap();
@@ -41,51 +47,79 @@ fn main() {
 	// if is_compressed(&mut archive) {
 	//     archive = create_stored_zip(&mut archive);
 	// }
-	let lang_tag = matches.value_of("TAG").expect("a valid BCP47 language tag");
-	let bundle_version = matches.value_of("BUNDLE_VERSION").unwrap();
-	let bundle_build = matches
-		.value_of("BUNDLE_BUILD")
-		.and_then(|v| v.parse::<u64>().ok())
-		.expect("a valid build number");
 
-	let zhfst_path = Path::new(matches.value_of("ZHFST").unwrap());
 	let output_path = Path::new(matches.value_of("OUTPUT").unwrap());
 
 	let sign = matches.is_present("SIGN");
 	let certificate_path = match sign {
-		true => Some(Path::new(matches.value_of("CERTIFICATE").expect("valid certificate path"))),
-		_ => None
+		true => Some(Path::new(
+			matches
+				.value_of("CERTIFICATE")
+				.expect("valid certificate path"),
+		)),
+		_ => None,
 	};
 
-	match matches.value_of("TARGET") {
-		Some("osx") => {
-			println!("Building Mac installer...");
-			targets::osx::create_installer(
-				lang_tag,
-				bundle_version,
-				bundle_build,
-				zhfst_path,
-				output_path,
-			);
-		}
-		Some("win") => {
-			let app_id = matches.value_of("APP_ID").expect("valid UUID");
+	let target = matches.value_of("TARGET");
 
-			println!("Building Windows installer...");
-			targets::win::create_installer(
-				app_id,
-				lang_tag,
-				bundle_version,
-				bundle_build,
-				zhfst_path,
-				output_path,
-				certificate_path
-			);
+	let package_version = matches.value_of("PACKAGE_VERSION").unwrap();
+	let package_build = matches
+		.value_of("PACKAGE_BUILD")
+		.and_then(|v| v.parse::<u64>().ok())
+		.expect("a valid build number");
+
+	match matches.subcommand() {
+		("speller", Some(sub_c)) => {
+			let lang_tag = sub_c.value_of("TAG").expect("a valid BCP47 language tag");
+
+			let zhfst_path = Path::new(sub_c.value_of("ZHFST").unwrap());
+			match target {
+				Some("osx") => {
+					println!("Building Mac installer...");
+					targets::osx::create_installer(
+						lang_tag,
+						package_version,
+						package_build,
+						zhfst_path,
+						output_path,
+					);
+				}
+				Some("win") => {
+					let app_id = matches.value_of("APP_ID").expect("valid UUID");
+
+					println!("Building Windows installer for {} speller", lang_tag);
+					targets::win::create_installer_speller(
+						app_id,
+						lang_tag,
+						package_version,
+						package_build,
+						zhfst_path,
+						output_path,
+						certificate_path,
+					);
+				}
+				_ => (),
+			}
 		}
-		Some(v) => {
-			error!("Invalid target: {}", v);
-		}
-		_ => (),
+		("checker", Some(sub_c)) => match target {
+			Some("win") => {
+				let app_id = matches.value_of("APP_ID").expect("valid UUID");
+				let dll_path = Path::new(sub_c.value_of("PACKAGE").expect("valid DLL path"));
+
+				println!("Building Windows installer for spell checker...");
+				targets::win::create_installer_spellchecker(
+					app_id,
+					dll_path,
+					package_version,
+					package_build,
+					output_path,
+					certificate_path,
+				);
+			}
+			Some("osx") => unimplemented!(),
+			_ => (),
+		},
+		_ => eprintln!("Invalid subcommand"),
 	}
 }
 

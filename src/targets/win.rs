@@ -18,7 +18,7 @@ macro_rules! wine_cmd {
 		}};
 }
 
-pub fn create_installer(
+pub fn create_installer_speller(
 	app_id: &str,
 	bcp47code: &str,
 	version: &str,
@@ -88,7 +88,82 @@ pub fn create_installer(
 		return;
 	}
 
-	let installer_name = format!("divvun-spellers-dict-{}.exe", bcp47code);
+	let installer_name = format!("divvun-spellers-{}.exe", bcp47code);
+	fs::rename(
+		output_dir.join("install.exe"),
+		output_dir.join(installer_name),
+	)
+	.expect("to rename installer executable");
+}
+
+pub fn create_installer_spellchecker(
+	app_id: &str,
+	dll_path: &Path,
+	version: &str,
+	build: u64,
+	output_dir: &Path,
+	pfx_path: Option<&Path>,
+) {
+	fs::create_dir_all(output_dir).expect("output dir to be created");
+
+	let installer_path = output_dir.join("installer.iss");
+
+	let app_name = "Divvun Spellers - Spell Checker";
+	let sign_pfx_password = pfx_path.as_ref().map(|_| get_pfx_password());
+
+	let dll_path_out = output_dir.join("spellchecker.dll");
+	info!("Copying spell checker DLL");
+	fs::copy(dll_path, &dll_path_out).expect("spell checker DLL to copy successfully");
+
+	{
+		let mut iss_file = File::create(&installer_path).expect("iss file to be created");
+		info!("Generating InnoSetup script");
+		iss_file
+			.write_all(
+				make_iss_speller(
+					app_id,
+					&app_name,
+					version,
+					build,
+					pfx_path,
+					sign_pfx_password,
+				)
+				.as_bytes(),
+			)
+			.expect("iss file to be written");
+	}
+
+	let iscc = get_inno_setup_path()
+		.expect("Valid Inno Setup path")
+		.join("ISCC.exe");
+
+	let iss_path = wine_path(&installer_path).expect("valid path to installer");
+
+	info!("Building installer binary..");
+
+	let output = wine_cmd!(iscc)
+		.arg(format!("/O{}", output_dir.to_str().unwrap()))
+		.arg("/Ssigntool=$p")
+		.arg(&iss_path)
+		.output()
+		.expect("process to spawn");
+
+	info!("ISCC output");
+	info!("{}", std::str::from_utf8(&output.stdout).unwrap());
+
+	if !log_enabled!(Info) {
+		fs::remove_file(installer_path).expect("to remove installer script");
+	}
+
+	fs::remove_file(dll_path_out).expect("to remove spell checker DLL");
+
+	if !output.status.success() {
+		eprintln!("ISCC failed!");
+		eprintln!("{}", std::str::from_utf8(&output.stderr).unwrap());
+		return;
+	}
+
+	let installer_name = "divvun-spell-checker.exe";
 	fs::rename(
 		output_dir.join("install.exe"),
 		output_dir.join(installer_name),
@@ -174,6 +249,57 @@ Source: "speller.zhfst"; DestDir: "{{app}}"; DestName: "{bcp47code}.zhfst"
 		version = version,
 		build = build,
 		app_name = app_name,
+		sign_tool = pfx_path.map_or("".to_string(), |path| iss_setup_signtool(
+			app_name,
+			&path,
+			&sign_pfx_password.unwrap()
+		))
+	)
+}
+
+fn make_iss_speller(
+	app_id: &str,
+	app_name: &str,
+	version: &str,
+	build: u64,
+	pfx_path: Option<&Path>,
+	sign_pfx_password: Option<String>,
+) -> String {
+	format!(
+		r#"#define CLSID "{{{{E45885BF-50CB-4F8F-9B19-95767EAF0F5C}}"
+#define DLL_NAME "divvunspellcheck.dll"
+
+[Setup]
+AppId={app_id}
+AppVersion={version}.{build}
+AppName={app_name}
+DefaultDirName={{pf}}\Divvun Spellers
+DefaultGroupName=Divvun Spellers
+Compression=lzma2
+SolidCompression=yes
+OutputDir=output
+ArchitecturesInstallIn64BitMode=x64
+OutputBaseFilename=install
+{sign_tool}
+
+[Files]
+Source: "spellchecker.dll"; DestDir: "{{app}}"; DestName: "{{#DLL_NAME}}"
+
+[Dirs]
+Name: "{{app}}/dictionaries"
+
+[Registry]
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Spelling\Spellers\divvun"; Flags: uninsdeletekey; ValueType: string; ValueName: "CLSID"; ValueData: "{{#CLSID}}"
+Root: HKLM; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}"; Flags: uninsdeletekey; ValueType: string; ValueData: "Divvun Spell Checking Provider"
+Root: HKLM; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}"; Flags: uninsdeletekey; ValueType: string; ValueName: "AppId"; ValueData: "{{#CLSID}}"
+Root: HKLM; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\InprocServer32"; Flags: uninsdeletekey; ValueType: string; ValueData: "{{app}}\{{#DLL_NAME}}"
+Root: HKLM; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\InprocServer32"; Flags: uninsdeletekey; ValueType: string; ValueName: "ThreadingModel"; ValueData: "Both"
+Root: HKLM; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\Version"; Flags: uninsdeletekey; ValueType: string; ValueData: "{version}.{build}"
+"#,
+		app_id = app_id,
+		app_name = app_name,
+		version = version,
+		build = build,
 		sign_tool = pfx_path.map_or("".to_string(), |path| iss_setup_signtool(
 			app_name,
 			&path,
