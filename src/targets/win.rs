@@ -244,6 +244,7 @@ Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 OutputBaseFilename=install
+AlwaysRestart=yes
 PrivilegesRequired={privileges}
 {sign_tool}
 
@@ -289,6 +290,7 @@ SolidCompression=yes
 OutputDir=output
 ArchitecturesInstallIn64BitMode=x64
 OutputBaseFilename=install
+AlwaysRestart=yes
 PrivilegesRequired={privileges}
 {sign_tool}
 
