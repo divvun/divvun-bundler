@@ -28,6 +28,7 @@ fn main() {
 		(@arg OUTPUT: -o --output +takes_value default_value(".") "Output directory")
 		(@arg PACKAGE_VERSION: -V +takes_value default_value("1.0.0") "Package version")
 		(@arg PACKAGE_BUILD: -B +takes_value default_value("0") "Package build number")
+		(@arg USER: -U "Create an installer for an unprivileged user (Windows only)")
 
 		(@subcommand speller =>
 			(about: "Build speller installers")
@@ -61,6 +62,7 @@ fn main() {
 	};
 
 	let target = matches.value_of("TARGET");
+	let user = matches.is_present("USER");
 
 	let package_version = matches.value_of("PACKAGE_VERSION").unwrap();
 	let package_build = matches
@@ -96,6 +98,7 @@ fn main() {
 						zhfst_path,
 						output_path,
 						certificate_path,
+						user,
 					);
 				}
 				_ => (),
@@ -114,6 +117,7 @@ fn main() {
 					package_build,
 					output_path,
 					certificate_path,
+					user,
 				);
 			}
 			Some("osx") => unimplemented!(),

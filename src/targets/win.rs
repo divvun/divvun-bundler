@@ -26,6 +26,7 @@ pub fn create_installer_speller(
 	zhfst_file: &Path,
 	output_dir: &Path,
 	pfx_path: Option<&Path>,
+	user: bool,
 ) {
 	fs::create_dir_all(output_dir).expect("output dir to be created");
 
@@ -52,6 +53,7 @@ pub fn create_installer_speller(
 					build,
 					pfx_path,
 					sign_pfx_password,
+					user,
 				)
 				.as_bytes(),
 			)
@@ -103,6 +105,7 @@ pub fn create_installer_spellchecker(
 	build: u64,
 	output_dir: &Path,
 	pfx_path: Option<&Path>,
+	user: bool,
 ) {
 	fs::create_dir_all(output_dir).expect("output dir to be created");
 
@@ -127,6 +130,7 @@ pub fn create_installer_spellchecker(
 					build,
 					pfx_path,
 					sign_pfx_password,
+					user,
 				)
 				.as_bytes(),
 			)
@@ -227,18 +231,20 @@ fn make_iss(
 	build: u64,
 	pfx_path: Option<&Path>,
 	sign_pfx_password: Option<String>,
+	user_installer: bool,
 ) -> String {
 	format!(
 		r#"[Setup]
 AppId={app_id}
 AppName={app_name}
 AppVersion={version}.{build}
-DefaultDirName={{pf}}\Divvun Spellers\dictionaries\{bcp47code}
-DefaultGroupName=Divvun Spellers
+DefaultDirName={default_dir_name}\Divvun\Spellers\dictionaries\{bcp47code}
+DefaultGroupName=Divvun
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 OutputBaseFilename=install
+PrivilegesRequired={privileges}
 {sign_tool}
 
 [Files]
@@ -253,7 +259,9 @@ Source: "speller.zhfst"; DestDir: "{{app}}"; DestName: "{bcp47code}.zhfst"
 			app_name,
 			&path,
 			&sign_pfx_password.unwrap()
-		))
+		)),
+		default_dir_name = if user_installer { "{userpf}" } else { "{pf}" },
+		privileges = if user_installer { "lowest" } else { "admin" }
 	)
 }
 
@@ -264,6 +272,7 @@ fn make_iss_speller(
 	build: u64,
 	pfx_path: Option<&Path>,
 	sign_pfx_password: Option<String>,
+	user_installer: bool,
 ) -> String {
 	format!(
 		r#"#define CLSID "{{{{E45885BF-50CB-4F8F-9B19-95767EAF0F5C}}"
@@ -273,13 +282,14 @@ fn make_iss_speller(
 AppId={app_id}
 AppVersion={version}.{build}
 AppName={app_name}
-DefaultDirName={{pf}}\Divvun Spellers
-DefaultGroupName=Divvun Spellers
+DefaultDirName={default_dir_name}\Divvun\Spellers
+DefaultGroupName=Divvun
 Compression=lzma2
 SolidCompression=yes
 OutputDir=output
 ArchitecturesInstallIn64BitMode=x64
 OutputBaseFilename=install
+PrivilegesRequired={privileges}
 {sign_tool}
 
 [Files]
@@ -289,12 +299,12 @@ Source: "spellchecker.dll"; DestDir: "{{app}}"; DestName: "{{#DLL_NAME}}"
 Name: "{{app}}/dictionaries"
 
 [Registry]
-Root: HKLM; Subkey: "SOFTWARE\Microsoft\Spelling\Spellers\divvun"; Flags: uninsdeletekey; ValueType: string; ValueName: "CLSID"; ValueData: "{{#CLSID}}"
-Root: HKLM; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}"; Flags: uninsdeletekey; ValueType: string; ValueData: "Divvun Spell Checking Provider"
-Root: HKLM; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}"; Flags: uninsdeletekey; ValueType: string; ValueName: "AppId"; ValueData: "{{#CLSID}}"
-Root: HKLM; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\InprocServer32"; Flags: uninsdeletekey; ValueType: string; ValueData: "{{app}}\{{#DLL_NAME}}"
-Root: HKLM; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\InprocServer32"; Flags: uninsdeletekey; ValueType: string; ValueName: "ThreadingModel"; ValueData: "Both"
-Root: HKLM; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\Version"; Flags: uninsdeletekey; ValueType: string; ValueData: "{version}.{build}"
+Root: {registry_root}; Subkey: "SOFTWARE\Microsoft\Spelling\Spellers\divvun"; Flags: uninsdeletekey; ValueType: string; ValueName: "CLSID"; ValueData: "{{#CLSID}}"
+Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}"; Flags: uninsdeletekey; ValueType: string; ValueData: "Divvun Spell Checking Provider"
+Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}"; Flags: uninsdeletekey; ValueType: string; ValueName: "AppId"; ValueData: "{{#CLSID}}"
+Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\InprocServer32"; Flags: uninsdeletekey; ValueType: string; ValueData: "{{app}}\{{#DLL_NAME}}"
+Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\InprocServer32"; Flags: uninsdeletekey; ValueType: string; ValueName: "ThreadingModel"; ValueData: "Both"
+Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\Version"; Flags: uninsdeletekey; ValueType: string; ValueData: "{version}.{build}"
 "#,
 		app_id = app_id,
 		app_name = app_name,
@@ -304,7 +314,22 @@ Root: HKLM; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\Version"; Flags: uninsdel
 			app_name,
 			&path,
 			&sign_pfx_password.unwrap()
-		))
+		)),
+		default_dir_name = if user_installer {
+			"{userpf}"
+		} else {
+			"{pf}"
+		},
+		registry_root = if user_installer {
+			"HKCU"
+		} else {
+			"HKLM"
+		},
+		privileges = if user_installer {
+			"lowest"
+		} else {
+			"admin"
+		}
 	)
 }
 
@@ -328,7 +353,7 @@ fn get_inno_setup_path() -> Option<PathBuf> {
 fn wine_path(path: &Path) -> Option<String> {
 	let abs_path = path.canonicalize().ok()?.to_str()?.to_string();
 	Some(if cfg!(windows) {
-		// InnoSetup can't handle extended length paths, Rust prefix absolute paths with \\?\
+		// InnoSetup can't handle extended length paths, Rust prefixes absolute paths with \\?\
 		abs_path[4..].to_string()
 	} else {
 		format!("Z:{}", abs_path.replace("/", "\\"))
