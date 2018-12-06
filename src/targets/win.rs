@@ -234,11 +234,12 @@ fn make_iss(
 	user_installer: bool,
 ) -> String {
 	format!(
-		r#"[Setup]
+		r#"#define APP_DIR "{default_dir_name}\Divvun\Spellers"
+[Setup]
 AppId={app_id}
 AppName={app_name}
 AppVersion={version}.{build}
-DefaultDirName={default_dir_name}\Divvun\Spellers\dictionaries\{bcp47code}
+DefaultDirName={{#APP_DIR}}\dictionaries\{bcp47code}
 DefaultGroupName=Divvun
 Compression=lzma2
 SolidCompression=yes
@@ -250,6 +251,9 @@ PrivilegesRequired={privileges}
 
 [Files]
 Source: "speller.zhfst"; DestDir: "{{app}}"; DestName: "{bcp47code}.zhfst"
+
+[Run]
+Filename: "icacls"; Parameters: """{{#APP_DIR}}"" /grant ""ALL APPLICATION PACKAGES"":R /T"; Flags: runhidden
 "#,
 		app_id = app_id,
 		bcp47code = bcp47code,
@@ -277,13 +281,14 @@ fn make_iss_speller(
 ) -> String {
 	format!(
 		r#"#define CLSID "{{{{E45885BF-50CB-4F8F-9B19-95767EAF0F5C}}"
+#define APP_DIR "{default_dir_name}\Divvun\Spellers"
 #define DLL_NAME "divvunspellcheck.dll"
 
 [Setup]
 AppId={app_id}
 AppVersion={version}.{build}
 AppName={app_name}
-DefaultDirName={default_dir_name}\Divvun\Spellers
+DefaultDirName={{#APP_DIR}}
 DefaultGroupName=Divvun
 Compression=lzma2
 SolidCompression=yes
@@ -299,6 +304,9 @@ Source: "spellchecker.dll"; DestDir: "{{app}}"; DestName: "{{#DLL_NAME}}"
 
 [Dirs]
 Name: "{{app}}/dictionaries"
+
+[Run]
+Filename: "icacls"; Parameters: """{{#APP_DIR}}"" /grant ""ALL APPLICATION PACKAGES"":R /T"; Flags: runhidden
 
 [Registry]
 Root: {registry_root}; Subkey: "SOFTWARE\Microsoft\Spelling\Spellers\divvun"; Flags: uninsdeletekey; ValueType: string; ValueName: "CLSID"; ValueData: "{{#CLSID}}"
