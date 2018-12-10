@@ -247,6 +247,10 @@ fn make_nsi_speller(
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_LANGUAGE English
 
+Function .onInit
+  !insertmacro MULTIUSER_INIT
+FunctionEnd
+
 Section "Installer Section"
   SetOutPath $INSTDIR
 
@@ -255,11 +259,18 @@ Section "Installer Section"
 
   ; grant access to application packages
   Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
+
+  writeUninstaller "$INSTDIR\uninstall.exe"
 SectionEnd
 
-Function .onInit
-  !insertmacro MULTIUSER_INIT
+Function un.onInit
+  !insertmacro MULTIUSER_UNINIT
 FunctionEnd
+
+Section un.UninstallSection
+  Delete $INSTDIR\{bcp47code}.zhfst
+  Delete $INSTDIR\uninstall.exe
+SectionEnd
 "#,
 		bcp47code = bcp47code
 	)
@@ -291,6 +302,10 @@ fn make_nsi_spellchecker(
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_LANGUAGE English
 
+Function .onInit
+  !insertmacro MULTIUSER_INIT
+FunctionEnd
+
 Section "Installer Section"
   SetOutPath $INSTDIR
 
@@ -306,15 +321,24 @@ Section "Installer Section"
   WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}" "AppId" "${{CLSID}}"
   WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}" "InProcServer32" "$INSTDIR\${{DLL_NAME}}"
   WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}\InProcServer32" "ThreadingModel" "Both"
-  WriteRegStr HKCU "SOFTWARE\Classes\CLSID\${{CLSID}}" "Version" "{version}.{build}"
+  WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}" "Version" "{version}.{build}"
 
   ; grant access to application packages
   Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
+
+  writeUninstaller "$INSTDIR\uninstall.exe"
 SectionEnd
 
-Function .onInit
-  !insertmacro MULTIUSER_INIT
+Function un.onInit
+  !insertmacro MULTIUSER_UNINIT
 FunctionEnd
+
+Section un.UninstallSection
+  DeleteRegKey SHELL_CONTEXT "SOFTWARE\Microsoft\Spelling\Spellers\divvun\CLSID"
+  DeleteRegKey SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}"
+  Delete $INSTDIR\${{DLL_NAME}}
+  Delete $INSTDIR\uninstall.exe
+SectionEnd
 "#,
 		version = version,
 		build = build
