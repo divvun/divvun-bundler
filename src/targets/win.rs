@@ -31,7 +31,7 @@ pub fn create_installer_speller(
 	fs::create_dir_all(output_dir).expect("output dir to be created");
 
 	let zhfst_file = zhfst_file.to_str().expect("valid zhfst path");
-	let installer_path = output_dir.join("installer.iss");
+	let installer_path = output_dir.join("installer.nsi");
 
 	let app_name = format!("Divvun Spellers - Speller Dictionary {}", bcp47code);
 	let sign_pfx_password = pfx_path.as_ref().map(|_| get_pfx_password());
@@ -41,11 +41,11 @@ pub fn create_installer_speller(
 	fs::copy(zhfst_file, &speller_path).expect("zhfst file to copy successfully");
 
 	{
-		let mut iss_file = File::create(&installer_path).expect("iss file to be created");
-		info!("Generating InnoSetup script");
-		iss_file
+		let mut nsi_file = File::create(&installer_path).expect("nsi file to be created");
+		info!("Generating NSIS script");
+		nsi_file
 			.write_all(
-				make_iss(
+				make_nsi_speller(
 					app_id,
 					&app_name,
 					bcp47code,
@@ -57,25 +57,25 @@ pub fn create_installer_speller(
 				)
 				.as_bytes(),
 			)
-			.expect("iss file to be written");
+			.expect("nsi file to be written");
 	}
 
-	let iscc = get_inno_setup_path()
-		.expect("Valid Inno Setup path")
-		.join("ISCC.exe");
+	let nsis = get_nsis_path()
+		.expect("Valid NSIS path")
+		.join("makensis.exe");
 
-	let iss_path = wine_path(&installer_path).expect("valid path to installer");
+	let nsis_path = wine_path(&installer_path).expect("valid path to installer");
 
 	info!("Building installer binary..");
 
-	let output = wine_cmd!(iscc)
-		.arg(format!("/O{}", output_dir.to_str().unwrap()))
-		.arg("/Ssigntool=$p")
-		.arg(&iss_path)
+	let output = wine_cmd!(nsis)
+		// .arg(format!("/O{}", output_dir.to_str().unwrap()))
+		// .arg("/Ssigntool=$p")
+		.arg(&nsis_path)
 		.output()
 		.expect("process to spawn");
 
-	info!("ISCC output");
+	info!("NSIS output");
 	info!("{}", std::str::from_utf8(&output.stdout).unwrap());
 
 	if !log_enabled!(Info) {
@@ -85,14 +85,14 @@ pub fn create_installer_speller(
 	fs::remove_file(speller_path).expect("to remove speller file");
 
 	if !output.status.success() {
-		eprintln!("ISCC failed!");
+		eprintln!("NSIS failed!");
 		eprintln!("{}", std::str::from_utf8(&output.stderr).unwrap());
 		return;
 	}
 
 	let installer_name = format!("divvun-spellers-{}.exe", bcp47code);
 	fs::rename(
-		output_dir.join("install.exe"),
+		output_dir.join("installer.exe"),
 		output_dir.join(installer_name),
 	)
 	.expect("to rename installer executable");
@@ -109,7 +109,7 @@ pub fn create_installer_spellchecker(
 ) {
 	fs::create_dir_all(output_dir).expect("output dir to be created");
 
-	let installer_path = output_dir.join("installer.iss");
+	let installer_path = output_dir.join("installer.nsi");
 
 	let app_name = "Divvun Spellers - Spell Checker";
 	let sign_pfx_password = pfx_path.as_ref().map(|_| get_pfx_password());
@@ -119,11 +119,11 @@ pub fn create_installer_spellchecker(
 	fs::copy(dll_path, &dll_path_out).expect("spell checker DLL to copy successfully");
 
 	{
-		let mut iss_file = File::create(&installer_path).expect("iss file to be created");
-		info!("Generating InnoSetup script");
-		iss_file
+		let mut nsi_file = File::create(&installer_path).expect("nsi file to be created");
+		info!("Generating NSIS script");
+		nsi_file
 			.write_all(
-				make_iss_speller(
+				make_nsi_spellchecker(
 					app_id,
 					&app_name,
 					version,
@@ -134,25 +134,25 @@ pub fn create_installer_spellchecker(
 				)
 				.as_bytes(),
 			)
-			.expect("iss file to be written");
+			.expect("nsi file to be written");
 	}
 
-	let iscc = get_inno_setup_path()
-		.expect("Valid Inno Setup path")
-		.join("ISCC.exe");
+	let nsis = get_nsis_path()
+		.expect("Valid NSIS path")
+		.join("makensis.exe");
 
-	let iss_path = wine_path(&installer_path).expect("valid path to installer");
+	let nsis_path = wine_path(&installer_path).expect("valid path to installer");
 
 	info!("Building installer binary..");
 
-	let output = wine_cmd!(iscc)
-		.arg(format!("/O{}", output_dir.to_str().unwrap()))
-		.arg("/Ssigntool=$p")
-		.arg(&iss_path)
+	let output = wine_cmd!(nsis)
+		// .arg(format!("/O{}", output_dir.to_str().unwrap()))
+		// .arg("/Ssigntool=$p")
+		.arg(&nsis_path)
 		.output()
 		.expect("process to spawn");
 
-	info!("ISCC output");
+	info!("NSIS output");
 	info!("{}", std::str::from_utf8(&output.stdout).unwrap());
 
 	if !log_enabled!(Info) {
@@ -162,14 +162,14 @@ pub fn create_installer_spellchecker(
 	fs::remove_file(dll_path_out).expect("to remove spell checker DLL");
 
 	if !output.status.success() {
-		eprintln!("ISCC failed!");
+		eprintln!("NSIS failed!");
 		eprintln!("{}", std::str::from_utf8(&output.stderr).unwrap());
 		return;
 	}
 
 	let installer_name = "divvun-spell-checker.exe";
 	fs::rename(
-		output_dir.join("install.exe"),
+		output_dir.join("installer.exe"),
 		output_dir.join(installer_name),
 	)
 	.expect("to rename installer executable");
@@ -223,7 +223,7 @@ fn get_pfx_password() -> String {
 	env::var("SIGN_PFX_PASSWORD").expect("SIGN_PFX_PASSWORD environment variable")
 }
 
-fn make_iss(
+fn make_nsi_speller(
 	app_id: &str,
 	app_name: &str,
 	bcp47code: &str,
@@ -234,43 +234,38 @@ fn make_iss(
 	user_installer: bool,
 ) -> String {
 	format!(
-		r#"#define APP_DIR "{default_dir_name}\Divvun\Spellers"
-[Setup]
-AppId={app_id}
-AppName={app_name}
-AppVersion={version}.{build}
-DefaultDirName={{#APP_DIR}}\dictionaries\{bcp47code}
-DefaultGroupName=Divvun
-Compression=lzma2
-SolidCompression=yes
-ArchitecturesInstallIn64BitMode=x64
-OutputBaseFilename=install
-AlwaysRestart=yes
-PrivilegesRequired={privileges}
-{sign_tool}
+		r#"!define MULTIUSER_EXECUTIONLEVEL Highest
+!define MULTIUSER_MUI
+!define MULTIUSER_INSTALLMODE_COMMANDLINE
+!define MULTIUSER_INSTALLMODE_INSTDIR Divvun\Spellers\dictionaries\{bcp47code}
 
-[Files]
-Source: "speller.zhfst"; DestDir: "{{app}}"; DestName: "{bcp47code}.zhfst"
+!include MultiUser.nsh
+!include MUI2.nsh
 
-[Run]
-Filename: "icacls"; Parameters: """{{#APP_DIR}}"" /grant ""ALL APPLICATION PACKAGES"":R /T"; Flags: runhidden
+!insertmacro MULTIUSER_PAGE_INSTALLMODE
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+!insertmacro MUI_LANGUAGE English
+
+Section "Installer Section"
+  SetOutPath $INSTDIR
+
+  ; copy spellchecker
+  File /oname={bcp47code}.zhfst speller.zhfst
+
+  ; grant access to application packages
+  Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
+SectionEnd
+
+Function .onInit
+  !insertmacro MULTIUSER_INIT
+FunctionEnd
 "#,
-		app_id = app_id,
-		bcp47code = bcp47code,
-		version = version,
-		build = build,
-		app_name = app_name,
-		sign_tool = pfx_path.map_or("".to_string(), |path| iss_setup_signtool(
-			app_name,
-			&path,
-			&sign_pfx_password.unwrap()
-		)),
-		default_dir_name = if user_installer { "{userpf}" } else { "{pf}" },
-		privileges = if user_installer { "lowest" } else { "admin" }
+		bcp47code = bcp47code
 	)
 }
 
-fn make_iss_speller(
+fn make_nsi_spellchecker(
 	app_id: &str,
 	app_name: &str,
 	version: &str,
@@ -280,78 +275,61 @@ fn make_iss_speller(
 	user_installer: bool,
 ) -> String {
 	format!(
-		r#"#define CLSID "{{{{E45885BF-50CB-4F8F-9B19-95767EAF0F5C}}"
-#define APP_DIR "{default_dir_name}\Divvun\Spellers"
-#define DLL_NAME "divvunspellcheck.dll"
+		r#"!define CLSID {{E45885BF-50CB-4F8F-9B19-95767EAF0F5C}}
+!define DLL_NAME divvunspellcheck.dll
 
-[Setup]
-AppId={app_id}
-AppVersion={version}.{build}
-AppName={app_name}
-DefaultDirName={{#APP_DIR}}
-DefaultGroupName=Divvun
-Compression=lzma2
-SolidCompression=yes
-OutputDir=output
-ArchitecturesInstallIn64BitMode=x64
-OutputBaseFilename=install
-AlwaysRestart=yes
-PrivilegesRequired={privileges}
-{sign_tool}
+!define MULTIUSER_EXECUTIONLEVEL Highest
+!define MULTIUSER_MUI
+!define MULTIUSER_INSTALLMODE_COMMANDLINE
+!define MULTIUSER_INSTALLMODE_INSTDIR Divvun\Spellers
 
-[Files]
-Source: "spellchecker.dll"; DestDir: "{{app}}"; DestName: "{{#DLL_NAME}}"
+!include MultiUser.nsh
+!include MUI2.nsh
 
-[Dirs]
-Name: "{{app}}/dictionaries"
+!insertmacro MULTIUSER_PAGE_INSTALLMODE
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+!insertmacro MUI_LANGUAGE English
 
-[Run]
-Filename: "icacls"; Parameters: """{{#APP_DIR}}"" /grant ""ALL APPLICATION PACKAGES"":R /T"; Flags: runhidden
+Section "Installer Section"
+  SetOutPath $INSTDIR
 
-[Registry]
-Root: {registry_root}; Subkey: "SOFTWARE\Microsoft\Spelling\Spellers\divvun"; Flags: uninsdeletekey; ValueType: string; ValueName: "CLSID"; ValueData: "{{#CLSID}}"
-Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}"; Flags: uninsdeletekey; ValueType: string; ValueData: "Divvun Spell Checking Provider"
-Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}"; Flags: uninsdeletekey; ValueType: string; ValueName: "AppId"; ValueData: "{{#CLSID}}"
-Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\InprocServer32"; Flags: uninsdeletekey; ValueType: string; ValueData: "{{app}}\{{#DLL_NAME}}"
-Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\InprocServer32"; Flags: uninsdeletekey; ValueType: string; ValueName: "ThreadingModel"; ValueData: "Both"
-Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\Version"; Flags: uninsdeletekey; ValueType: string; ValueData: "{version}.{build}"
+  ; copy spellchecker
+  File /oname=${{DLL_NAME}} spellchecker.dll
+
+  ; create folder for spellers
+  CreateDirectory $INSTDIR\dictionaries
+
+  ; update registry
+  WriteRegStr SHELL_CONTEXT "SOFTWARE\Microsoft\Spelling\Spellers\divvun" "CLSID" "${{CLSID}}"
+  WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID" "${{CLSID}}" "Divvun Spell Checking Provider"
+  WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}" "AppId" "${{CLSID}}"
+  WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}" "InProcServer32" "$INSTDIR\${{DLL_NAME}}"
+  WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}\InProcServer32" "ThreadingModel" "Both"
+  WriteRegStr HKCU "SOFTWARE\Classes\CLSID\${{CLSID}}" "Version" "{version}.{build}"
+
+  ; grant access to application packages
+  Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
+SectionEnd
+
+Function .onInit
+  !insertmacro MULTIUSER_INIT
+FunctionEnd
 "#,
-		app_id = app_id,
-		app_name = app_name,
 		version = version,
-		build = build,
-		sign_tool = pfx_path.map_or("".to_string(), |path| iss_setup_signtool(
-			app_name,
-			&path,
-			&sign_pfx_password.unwrap()
-		)),
-		default_dir_name = if user_installer {
-			"{userpf}"
-		} else {
-			"{pf}"
-		},
-		registry_root = if user_installer {
-			"HKCU"
-		} else {
-			"HKLM"
-		},
-		privileges = if user_installer {
-			"lowest"
-		} else {
-			"admin"
-		}
+		build = build
 	)
 }
 
-fn get_inno_setup_path() -> Option<PathBuf> {
-	if let Ok(dir) = env::var("INNO_PATH") {
+fn get_nsis_path() -> Option<PathBuf> {
+	if let Ok(dir) = env::var("NSIS_PATH") {
 		return Some(PathBuf::from(dir));
 	}
 
 	if cfg!(windows) {
 		let alternatives = vec![
-			PathBuf::from(r"C:\Program Files\Inno Setup 5"),
-			PathBuf::from(r"C:\Program Files (x86)\Inno Setup 5"),
+			PathBuf::from(r"C:\Program Files\NSIS"),
+			PathBuf::from(r"C:\Program Files (x86)\NSIS"),
 		];
 
 		alternatives.iter().filter(|p| p.is_dir()).next().cloned()
@@ -369,3 +347,140 @@ fn wine_path(path: &Path) -> Option<String> {
 		format!("Z:{}", abs_path.replace("/", "\\"))
 	})
 }
+
+// fn make_iss(
+// 	app_id: &str,
+// 	app_name: &str,
+// 	bcp47code: &str,
+// 	version: &str,
+// 	build: u64,
+// 	pfx_path: Option<&Path>,
+// 	sign_pfx_password: Option<String>,
+// 	user_installer: bool,
+// ) -> String {
+// 	format!(
+// 		r#"#define APP_DIR "{default_dir_name}\Divvun\Spellers"
+// [Setup]
+// AppId={app_id}
+// AppName={app_name}
+// AppVersion={version}.{build}
+// DefaultDirName={{#APP_DIR}}\dictionaries\{bcp47code}
+// DefaultGroupName=Divvun
+// Compression=lzma2
+// SolidCompression=yes
+// ArchitecturesInstallIn64BitMode=x64
+// OutputBaseFilename=install
+// AlwaysRestart=yes
+// PrivilegesRequired={privileges}
+// {sign_tool}
+
+// [Files]
+// Source: "speller.zhfst"; DestDir: "{{app}}"; DestName: "{bcp47code}.zhfst"
+
+// [Run]
+// Filename: "icacls"; Parameters: """{{#APP_DIR}}"" /grant ""ALL APPLICATION PACKAGES"":R /T"; Flags: runhidden
+// "#,
+// 		app_id = app_id,
+// 		bcp47code = bcp47code,
+// 		version = version,
+// 		build = build,
+// 		app_name = app_name,
+// 		sign_tool = pfx_path.map_or("".to_string(), |path| iss_setup_signtool(
+// 			app_name,
+// 			&path,
+// 			&sign_pfx_password.unwrap()
+// 		)),
+// 		default_dir_name = if user_installer { "{userpf}" } else { "{pf}" },
+// 		privileges = if user_installer { "lowest" } else { "admin" }
+// 	)
+// }
+
+// fn make_iss_speller(
+// 	app_id: &str,
+// 	app_name: &str,
+// 	version: &str,
+// 	build: u64,
+// 	pfx_path: Option<&Path>,
+// 	sign_pfx_password: Option<String>,
+// 	user_installer: bool,
+// ) -> String {
+// 	format!(
+// 		r#"#define CLSID "{{{{E45885BF-50CB-4F8F-9B19-95767EAF0F5C}}"
+// #define APP_DIR "{default_dir_name}\Divvun\Spellers"
+// #define DLL_NAME "divvunspellcheck.dll"
+
+// [Setup]
+// AppId={app_id}
+// AppVersion={version}.{build}
+// AppName={app_name}
+// DefaultDirName={{#APP_DIR}}
+// DefaultGroupName=Divvun
+// Compression=lzma2
+// SolidCompression=yes
+// OutputDir=output
+// ArchitecturesInstallIn64BitMode=x64
+// OutputBaseFilename=install
+// AlwaysRestart=yes
+// PrivilegesRequired={privileges}
+// {sign_tool}
+
+// [Files]
+// Source: "spellchecker.dll"; DestDir: "{{app}}"; DestName: "{{#DLL_NAME}}"
+
+// [Dirs]
+// Name: "{{app}}/dictionaries"
+
+// [Run]
+// Filename: "icacls"; Parameters: """{{#APP_DIR}}"" /grant ""ALL APPLICATION PACKAGES"":R /T"; Flags: runhidden
+
+// [Registry]
+// Root: {registry_root}; Subkey: "SOFTWARE\Microsoft\Spelling\Spellers\divvun"; Flags: uninsdeletekey; ValueType: string; ValueName: "CLSID"; ValueData: "{{#CLSID}}"
+// Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}"; Flags: uninsdeletekey; ValueType: string; ValueData: "Divvun Spell Checking Provider"
+// Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}"; Flags: uninsdeletekey; ValueType: string; ValueName: "AppId"; ValueData: "{{#CLSID}}"
+// Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\InprocServer32"; Flags: uninsdeletekey; ValueType: string; ValueData: "{{app}}\{{#DLL_NAME}}"
+// Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\InprocServer32"; Flags: uninsdeletekey; ValueType: string; ValueName: "ThreadingModel"; ValueData: "Both"
+// Root: {registry_root}; Subkey: "SOFTWARE\Classes\CLSID\{{#CLSID}}\Version"; Flags: uninsdeletekey; ValueType: string; ValueData: "{version}.{build}"
+// "#,
+// 		app_id = app_id,
+// 		app_name = app_name,
+// 		version = version,
+// 		build = build,
+// 		sign_tool = pfx_path.map_or("".to_string(), |path| iss_setup_signtool(
+// 			app_name,
+// 			&path,
+// 			&sign_pfx_password.unwrap()
+// 		)),
+// 		default_dir_name = if user_installer {
+// 			"{userpf}"
+// 		} else {
+// 			"{pf}"
+// 		},
+// 		registry_root = if user_installer {
+// 			"HKCU"
+// 		} else {
+// 			"HKLM"
+// 		},
+// 		privileges = if user_installer {
+// 			"lowest"
+// 		} else {
+// 			"admin"
+// 		}
+// 	)
+// }
+
+// fn get_inno_setup_path() -> Option<PathBuf> {
+// 	if let Ok(dir) = env::var("INNO_PATH") {
+// 		return Some(PathBuf::from(dir));
+// 	}
+
+// 	if cfg!(windows) {
+// 		let alternatives = vec![
+// 			PathBuf::from(r"C:\Program Files\Inno Setup 5"),
+// 			PathBuf::from(r"C:\Program Files (x86)\Inno Setup 5"),
+// 		];
+
+// 		alternatives.iter().filter(|p| p.is_dir()).next().cloned()
+// 	} else {
+// 		None
+// 	}
+// }
