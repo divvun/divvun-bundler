@@ -70,7 +70,6 @@ pub fn create_installer_speller(
 
 	let output = wine_cmd!(nsis)
 		.arg(format!("/XOutFile {}\\installer.exe", output_dir.to_str().unwrap()))
-		// .arg("/Ssigntool=$p")
 		.arg(&nsis_path)
 		.output()
 		.expect("process to spawn");
@@ -147,7 +146,6 @@ pub fn create_installer_spellchecker(
 
 	let output = wine_cmd!(nsis)
 		.arg(format!("/XOutFile {}\\installer.exe", output_dir.to_str().unwrap()))
-		// .arg("/Ssigntool=$p")
 		.arg(&nsis_path)
 		.output()
 		.expect("process to spawn");
@@ -175,36 +173,20 @@ pub fn create_installer_spellchecker(
 	.expect("to rename installer executable");
 }
 
-fn iss_setup_signtool(app_name: &str, pfx_path: &Path, sign_pfx_password: &str) -> String {
+fn nsis_setup_signtool(app_name: &str, pfx_path: &Path, sign_pfx_password: &str) -> String {
 	let signtool_path = get_signtool_path();
 	let pfx_path_wine = wine_path(pfx_path).expect("valid PFX path");
-	if cfg!(windows) {
-		format!(
-			"SignTool=signtool {signtool_path} sign \
-			 /t http://timestamp.verisign.com/scripts/timstamp.dll \
-			 /f $q{pfx_path}$q \
-			 /p $q{sign_pfx_password}$q \
-			 /d $q{app_name}$q $f",
-			pfx_path = pfx_path_wine,
-			app_name = app_name,
-			sign_pfx_password = sign_pfx_password,
-			signtool_path = signtool_path
-		)
-	} else {
-		format!(
-			"SignTool=signtool cmd /c {signtool_path} sign \
-			 -pkcs12 $q{pfx_path}$q \
-			 -pass $q{sign_pfx_password}$q \
-			 -n $q{app_name}$q \
-			 -t http://timestamp.verisign.com/scripts/timstamp.dll \
-			 $f \
-			 signed && del $f && move signed $f",
-			pfx_path = pfx_path_wine,
-			app_name = app_name,
-			sign_pfx_password = sign_pfx_password,
-			signtool_path = signtool_path
-		)
-	}
+	format!(
+		"{signtool_path} sign \
+			/t http://timestamp.verisign.com/scripts/timstamp.dll \
+			/f $q{pfx_path}$q \
+			/p $q{sign_pfx_password}$q \
+			/d $q{app_name}$q $f",
+		pfx_path = pfx_path_wine,
+		app_name = app_name,
+		sign_pfx_password = sign_pfx_password,
+		signtool_path = signtool_path
+	)
 }
 
 fn get_signtool_path() -> String {
@@ -233,6 +215,14 @@ fn make_nsi_speller(
 	sign_pfx_password: Option<String>,
 	user_installer: bool,
 ) -> String {
+
+	let sign_tool = match pfx_path {
+		Some(_) => {
+			nsis_setup_signtool(app_name, pfx_path.unwrap(), &sign_pfx_password.unwrap())
+		}
+		None => "".to_string(),
+	};
+
 	format!(
 		r#"!define MULTIUSER_EXECUTIONLEVEL Highest
 !define MULTIUSER_MUI
@@ -274,9 +264,12 @@ Section un.UninstallSection
   Delete $INSTDIR\{bcp47code}.zhfst
   Delete $INSTDIR\uninstall.exe
 SectionEnd
+
+!finalize '{sign_tool}'
 "#,
 		app_name = app_name,
-		bcp47code = bcp47code
+		bcp47code = bcp47code,
+		sign_tool = sign_tool
 	)
 }
 
@@ -289,6 +282,14 @@ fn make_nsi_spellchecker(
 	sign_pfx_password: Option<String>,
 	user_installer: bool,
 ) -> String {
+
+	let sign_tool = match pfx_path {
+		Some(_) => {
+			nsis_setup_signtool(app_name, pfx_path.unwrap(), &sign_pfx_password.unwrap())
+		}
+		None => "".to_string(),
+	};
+
 	format!(
 		r#"!define CLSID {{E45885BF-50CB-4F8F-9B19-95767EAF0F5C}}
 !define DLL_NAME divvunspellcheck.dll
@@ -346,10 +347,13 @@ Section un.UninstallSection
   Delete $INSTDIR\${{DLL_NAME}}
   Delete $INSTDIR\uninstall.exe
 SectionEnd
+
+!finalize '{sign_tool}'
 "#,
 		app_name = app_name,
 		version = version,
-		build = build
+		build = build,
+		sign_tool = sign_tool
 	)
 }
 
@@ -514,5 +518,37 @@ fn wine_path(path: &Path) -> Option<String> {
 // 		alternatives.iter().filter(|p| p.is_dir()).next().cloned()
 // 	} else {
 // 		None
+// 	}
+// }
+
+// fn iss_setup_signtool(app_name: &str, pfx_path: &Path, sign_pfx_password: &str) -> String {
+// 	let signtool_path = get_signtool_path();
+// 	let pfx_path_wine = wine_path(pfx_path).expect("valid PFX path");
+// 	if cfg!(windows) {
+// 		format!(
+// 			"SignTool=signtool {signtool_path} sign \
+// 			 /t http://timestamp.verisign.com/scripts/timstamp.dll \
+// 			 /f $q{pfx_path}$q \
+// 			 /p $q{sign_pfx_password}$q \
+// 			 /d $q{app_name}$q $f",
+// 			pfx_path = pfx_path_wine,
+// 			app_name = app_name,
+// 			sign_pfx_password = sign_pfx_password,
+// 			signtool_path = signtool_path
+// 		)
+// 	} else {
+// 		format!(
+// 			"SignTool=signtool cmd /c {signtool_path} sign \
+// 			 -pkcs12 $q{pfx_path}$q \
+// 			 -pass $q{sign_pfx_password}$q \
+// 			 -n $q{app_name}$q \
+// 			 -t http://timestamp.verisign.com/scripts/timstamp.dll \
+// 			 $f \
+// 			 signed && del $f && move signed $f",
+// 			pfx_path = pfx_path_wine,
+// 			app_name = app_name,
+// 			sign_pfx_password = sign_pfx_password,
+// 			signtool_path = signtool_path
+// 		)
 // 	}
 // }
