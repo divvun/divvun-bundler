@@ -176,17 +176,33 @@ pub fn create_installer_spellchecker(
 fn nsis_setup_signtool(app_name: &str, pfx_path: &Path, sign_pfx_password: &str) -> String {
 	let signtool_path = get_signtool_path();
 	let pfx_path_wine = wine_path(pfx_path).expect("valid PFX path");
-	format!(
-		"{signtool_path} sign \
-			/t http://timestamp.verisign.com/scripts/timstamp.dll \
-			/f $q{pfx_path}$q \
-			/p $q{sign_pfx_password}$q \
-			/d $q{app_name}$q $f",
-		pfx_path = pfx_path_wine,
-		app_name = app_name,
-		sign_pfx_password = sign_pfx_password,
-		signtool_path = signtool_path
-	)
+	if cfg!(windows) {
+		format!(
+			"{signtool_path} sign \
+			 /t http://timestamp.verisign.com/scripts/timstamp.dll \
+			 /f \"{pfx_path}\" \
+			 /p \"{sign_pfx_password}\" \
+			 /d \"{app_name}\" installer.exe",
+			pfx_path = pfx_path_wine,
+			app_name = app_name,
+			sign_pfx_password = sign_pfx_password,
+			signtool_path = signtool_path
+		)
+	} else {
+		format!(
+			"{signtool_path} sign \
+			 -pkcs12 \"{pfx_path}\" \
+			 -pass \"{sign_pfx_password}\" \
+			 -n \"{app_name}\" \
+			 -t http://timestamp.verisign.com/scripts/timstamp.dll \
+			 -in installer.exe \
+			 -out signed && del installer.exe && move signed installer.exe",
+			pfx_path = pfx_path_wine,
+			app_name = app_name,
+			sign_pfx_password = sign_pfx_password,
+			signtool_path = signtool_path
+		)
+	}
 }
 
 fn get_signtool_path() -> String {
