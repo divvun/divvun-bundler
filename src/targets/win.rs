@@ -69,7 +69,7 @@ pub fn create_installer_speller(
 	info!("Building installer binary..");
 
 	let output = wine_cmd!(nsis)
-		// .arg(format!("/O{}", output_dir.to_str().unwrap()))
+		.arg(format!("/XOutFile {}\\installer.exe", output_dir.to_str().unwrap()))
 		// .arg("/Ssigntool=$p")
 		.arg(&nsis_path)
 		.output()
@@ -146,7 +146,7 @@ pub fn create_installer_spellchecker(
 	info!("Building installer binary..");
 
 	let output = wine_cmd!(nsis)
-		// .arg(format!("/O{}", output_dir.to_str().unwrap()))
+		.arg(format!("/XOutFile {}\\installer.exe", output_dir.to_str().unwrap()))
 		// .arg("/Ssigntool=$p")
 		.arg(&nsis_path)
 		.output()
@@ -242,6 +242,9 @@ fn make_nsi_speller(
 !include MultiUser.nsh
 !include MUI2.nsh
 
+Name "{app_name}"
+Outfile installer.exe
+
 !insertmacro MULTIUSER_PAGE_INSTALLMODE
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
@@ -272,6 +275,7 @@ Section un.UninstallSection
   Delete $INSTDIR\uninstall.exe
 SectionEnd
 "#,
+		app_name = app_name,
 		bcp47code = bcp47code
 	)
 }
@@ -296,6 +300,9 @@ fn make_nsi_spellchecker(
 
 !include MultiUser.nsh
 !include MUI2.nsh
+
+Name "{app_name}"
+Outfile installer.exe
 
 !insertmacro MULTIUSER_PAGE_INSTALLMODE
 !insertmacro MUI_PAGE_DIRECTORY
@@ -340,6 +347,7 @@ Section un.UninstallSection
   Delete $INSTDIR\uninstall.exe
 SectionEnd
 "#,
+		app_name = app_name,
 		version = version,
 		build = build
 	)
