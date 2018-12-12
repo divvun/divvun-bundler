@@ -27,12 +27,14 @@ fn main() {
 		(@arg CERTIFICATE: -c +takes_value "Certificate to be used for signing")
 		(@arg OUTPUT: -o --output +takes_value default_value(".") "Output directory")
 		(@arg PACKAGE_VERSION: -V +takes_value default_value("1.0.0") "Package version")
-		(@arg PACKAGE_BUILD: -B +takes_value default_value("0") "Package build number")
+		(@arg PACKAGE_BUILD: -B +takes_value default_value("1") "Package build number")
 		(@arg USER: -U "Create an installer for an unprivileged user (Windows only)")
 
 		(@subcommand speller =>
 			(about: "Build speller installers")
 			(@arg TAG: -l +takes_value +required "Language tag in BCP 47 format (eg: sma-Latn-NO)")
+			(@arg APP_CODE_SIGN_ID: -a +takes_value "App Developer ID code sign identifier")
+			(@arg INSTALLER_CODE_SIGN_ID: -i +takes_value "Installer Developer ID code sign identifier")
 			(@arg ZHFST: -z --zhfst +takes_value +required "ZHFST (Speller) file (eg: se.zhfst)")
 		)
 		(@subcommand checker =>
@@ -73,10 +75,11 @@ fn main() {
 	match matches.subcommand() {
 		("speller", Some(sub_c)) => {
 			let lang_tag = sub_c.value_of("TAG").expect("a valid BCP47 language tag");
-
 			let zhfst_path = Path::new(sub_c.value_of("ZHFST").unwrap());
 			match target {
 				Some("osx") => {
+					let app_code_sign_id = sub_c.value_of("APP_CODE_SIGN_ID").unwrap();
+					let inst_code_sign_id = sub_c.value_of("INSTALLER_CODE_SIGN_ID").unwrap();
 					println!("Building Mac installer...");
 					targets::osx::create_installer(
 						lang_tag,
@@ -84,10 +87,18 @@ fn main() {
 						package_build,
 						zhfst_path,
 						output_path,
+						inst_code_sign_id,
+						app_code_sign_id
 					);
 				}
 				Some("win") => {
-					let app_id = matches.value_of("APP_ID").expect("valid UUID");
+					let app_id = match matches.value_of("APP_ID") {
+						Some(v) => v,
+						None => {
+							eprintln!("No UUID provided!");
+							return;
+						}
+					};
 
 					println!("Building Windows installer for {} speller", lang_tag);
 					targets::win::create_installer_speller(

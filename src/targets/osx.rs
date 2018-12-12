@@ -11,6 +11,8 @@ pub fn create_installer(
     build: u64,
     zhfst_file: &Path,
     output_dir: &Path,
+    installer_code_sign_id: &str,
+    app_code_sign_id: &str
 ) {
     let package = "no.divvun.MacDivvun";
     let bundle_name = format!("{}.{}.bundle", package, bcp47code);
@@ -24,12 +26,23 @@ pub fn create_installer(
         zhfst_file,
         output_dir,
     );
+    sign_bundle(
+        &bundle_name,
+        app_code_sign_id,
+        output_dir
+    );
     create_installer_from_bundle(
         APP_NAME,
         &output_dir.join(bundle_name),
         version,
         package,
         output_dir,
+    );
+    sign_installer(
+        APP_NAME,
+        version,
+        installer_code_sign_id,
+        output_dir
     );
 }
 
@@ -126,7 +139,7 @@ fn create_installer_from_bundle(
             .expect("distribution file to be written");
     }
 
-    let pkg_name = format!("{}.unsigned.pkg", package);
+    let pkg_name = format!("{}.unsigned.pkg", app_name);
 
     let result = Command::new("productbuild")
         .current_dir(output_dir)
@@ -143,6 +156,43 @@ fn create_installer_from_bundle(
     if !result.success() {
         panic!("productbuild failed");
     }
+}
+
+fn sign_installer(
+    app_name: &str,
+    version: &str,
+    code_sign_id: &str,
+    output_dir: &Path
+) {
+    let unsigned_pkg_name = format!("{}.unsigned.pkg", app_name);
+    let signed_pkg_name = format!("{}-{}.pkg", app_name, version);
+
+    let result = Command::new("productsign")
+        .current_dir(output_dir)
+        .arg("--sign")
+        .arg(code_sign_id)
+        .arg(unsigned_pkg_name)
+        .arg(signed_pkg_name)
+        .status()
+        .expect("pkgbuild to complete successfully");
+}
+
+fn sign_bundle(
+    bundle_name: &str,
+    code_sign_id: &str,
+    output_dir: &Path
+) {
+    let bundle_dir = output_dir.join(&bundle_name);
+
+     let result = Command::new("codesign")
+        .current_dir(output_dir)
+        .arg("-f")
+        .arg("-v")
+        .arg("-s")
+        .arg(code_sign_id)
+        .arg(bundle_dir)
+        .status()
+        .expect("bundle signing to complete successfully");
 }
 
 fn create_component_package(
@@ -177,19 +227,19 @@ fn create_component_package(
 fn make_distribution(app_name: &str, package: &str, component_package: &str) -> String {
     format!(r#"<?xml version="1.0" encoding="UTF-8"?>
 <installer-gui-script minSpecVersion="2">
-	<title>{app_name}</title>
-	<options customize="never" rootVolumeOnly="true"/>
-	<choices-outline>
-    	<line choice="default">
-      		<line choice="{package}"/>
-    	</line>
-  	</choices-outline>
+    <title>{app_name}</title>
+    <options customize="never" rootVolumeOnly="true"/>
+    <choices-outline>
+        <line choice="default">
+            <line choice="{package}"/>
+        </line>
+    </choices-outline>
 
-	<choice id="default" />
+    <choice id="default" />
     <choice id="{package}" visible="false">
-		<pkg-ref id="{package}"/>
-	</choice>
+        <pkg-ref id="{package}"/>
+    </choice>
 
-	<pkg-ref id="{package}" onConclusion="RequireRestart" version="0" auth="root">{component_package}</pkg-ref>
-</installer>"#, app_name = app_name, package = package, component_package = component_package)
+    <pkg-ref id="{package}" onConclusion="RequireRestart" version="0" auth="root">{component_package}</pkg-ref>
+</installer-gui-script>"#, app_name = app_name, package = package, component_package = component_package)
 }
