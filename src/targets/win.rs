@@ -111,13 +111,17 @@ pub fn create_installer_spellchecker(
 	user: bool,
 ) {
 	fs::create_dir_all(output_dir).expect("output dir to be created");
-
+	let installer_name = format!("windivvun-{}.exe", version);
+	let nsis = get_nsis_path()
+		.expect("Valid NSIS path")
+		.join("makensis.exe");
 	let installer_path = output_dir.join("installer.nsi");
 
-	let app_name = "Divvun Spellers - Spell Checker";
+
+	let app_name = "WinDivvun";
 	let sign_pfx_password = pfx_path.as_ref().map(|_| get_pfx_password());
 
-	let dll_path_out = output_dir.join("spellchecker.dll");
+	let dll_path_out = output_dir.join("windivvun.dll");
 	info!("Copying spell checker DLL");
 	fs::copy(dll_path, &dll_path_out).expect("spell checker DLL to copy successfully");
 
@@ -139,10 +143,6 @@ pub fn create_installer_spellchecker(
 			)
 			.expect("nsi file to be written");
 	}
-
-	let nsis = get_nsis_path()
-		.expect("Valid NSIS path")
-		.join("makensis.exe");
 
 	let nsis_path = wine_path(&installer_path).expect("valid path to installer");
 
@@ -169,7 +169,6 @@ pub fn create_installer_spellchecker(
 		return;
 	}
 
-	let installer_name = "divvun-spell-checker.exe";
 	fs::rename(
 		output_dir.join("installer.exe"),
 		output_dir.join(installer_name),
@@ -247,7 +246,7 @@ fn make_nsi_speller(
 		r#"!define MULTIUSER_EXECUTIONLEVEL Highest
 !define MULTIUSER_MUI
 !define MULTIUSER_INSTALLMODE_COMMANDLINE
-!define MULTIUSER_INSTALLMODE_INSTDIR Divvun\Spellers\dictionaries\{bcp47code}
+!define MULTIUSER_INSTALLMODE_INSTDIR WinDivvun\Spellers\{bcp47code}
 
 !include MultiUser.nsh
 !include MUI2.nsh
@@ -255,9 +254,16 @@ fn make_nsi_speller(
 Name "{app_name}"
 Outfile installer.exe
 
+!insertmacro MUI_PAGE_WELCOME
 !insertmacro MULTIUSER_PAGE_INSTALLMODE
-!insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
+!insertmacro MUI_PAGE_FINISH
+
+!insertmacro MUI_UNPAGE_WELCOME
+!insertmacro MUI_UNPAGE_CONFIRM
+!insertmacro MUI_UNPAGE_INSTFILES
+!insertmacro MUI_UNPAGE_FINISH
+
 !insertmacro MUI_LANGUAGE English
 
 Function .onInit
@@ -281,8 +287,7 @@ Function un.onInit
 FunctionEnd
 
 Section un.UninstallSection
-  Delete $INSTDIR\{bcp47code}.zhfst
-  Delete $INSTDIR\uninstall.exe
+  Delete $INSTDIR
 SectionEnd
 
 !finalize '{sign_tool}'
@@ -311,65 +316,7 @@ fn make_nsi_spellchecker(
 	};
 
 	format!(
-		r#"!define CLSID {{E45885BF-50CB-4F8F-9B19-95767EAF0F5C}}
-!define DLL_NAME divvunspellcheck.dll
-
-!define MULTIUSER_EXECUTIONLEVEL Highest
-!define MULTIUSER_MUI
-!define MULTIUSER_INSTALLMODE_COMMANDLINE
-!define MULTIUSER_INSTALLMODE_INSTDIR Divvun\Spellers
-
-!include MultiUser.nsh
-!include MUI2.nsh
-
-Name "{app_name}"
-Outfile installer.exe
-
-!insertmacro MULTIUSER_PAGE_INSTALLMODE
-!insertmacro MUI_PAGE_DIRECTORY
-!insertmacro MUI_PAGE_INSTFILES
-!insertmacro MUI_LANGUAGE English
-
-Function .onInit
-  !insertmacro MULTIUSER_INIT
-FunctionEnd
-
-Section "Installer Section"
-  SetOutPath $INSTDIR
-
-  ; copy spellchecker
-  File /oname=${{DLL_NAME}} spellchecker.dll
-
-  ; create folder for spellers
-  CreateDirectory $INSTDIR\dictionaries
-
-  ; update registry
-  WriteRegStr SHELL_CONTEXT "SOFTWARE\Microsoft\Spelling\Spellers\Divvun" "CLSID" "${{CLSID}}"
-  WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID" "${{CLSID}}" "Divvun Spell Checking Provider"
-  WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}" "AppId" "${{CLSID}}"
-  WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}" "InProcServer32" "$INSTDIR\${{DLL_NAME}}"
-  WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}\InProcServer32" "ThreadingModel" "Both"
-  WriteRegStr SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}" "Version" "{version}.{build}"
-
-  ; grant access to application packages
-  Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
-
-  writeUninstaller "$INSTDIR\uninstall.exe"
-SectionEnd
-
-Function un.onInit
-  !insertmacro MULTIUSER_UNINIT
-FunctionEnd
-
-Section un.UninstallSection
-  DeleteRegKey SHELL_CONTEXT "SOFTWARE\Microsoft\Spelling\Spellers\Divvun\CLSID"
-  DeleteRegKey SHELL_CONTEXT "SOFTWARE\Classes\CLSID\${{CLSID}}"
-  Delete $INSTDIR\${{DLL_NAME}}
-  Delete $INSTDIR\uninstall.exe
-SectionEnd
-
-!finalize '{sign_tool}'
-"#,
+		include_str!("./win-speller.nsi"),
 		app_name = app_name,
 		version = version,
 		build = build,
