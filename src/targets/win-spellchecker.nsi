@@ -2,7 +2,10 @@
 !define DLL_NAME windivvun.dll
 
 ; General
+Name "{app_name}"
 Unicode true
+SetCompressor /SOLID lzma
+
 RequestExecutionLevel admin
 
 !define MULTIUSER_EXECUTIONLEVEL Admin
@@ -18,9 +21,6 @@ RequestExecutionLevel admin
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 !define MUI_UNFINISHPAGE_NOAUTOCLOSE
 
-Name "{app_name}"
-Outfile installer.exe
-
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -31,6 +31,39 @@ Outfile installer.exe
 !insertmacro MUI_UNPAGE_FINISH
 
 !insertmacro MUI_LANGUAGE English
+
+!ifdef INNER
+    !echo "Generating Uninstaller"
+    OutFile "tempinstaller.exe"
+    SetCompress off
+!else
+    ; create uninstall
+    !makensis '/DINNER "${{__FILE__}}"' = 0
+
+    !system "tempinstaller.exe" = 2
+
+    ; sign the uninstaller
+    !system '{sign_tool_uninstaller}' = 0
+
+    OutFile installer.exe
+
+    !finalize '{sign_tool}'
+!endif
+
+
+Function .onInit
+  !ifdef INNER
+    System::Call "kernel32::GetCurrentDirectory(i ${{NSIS_MAX_STRLEN}}, t .r0)"
+    WriteUninstaller "$0\uninstall.exe"
+    Quit
+  !else
+    ${{If}} ${{RunningX64}}
+      SetRegView 64
+    ${{EndIf}}
+
+    !insertmacro MULTIUSER_INIT
+  !endif
+FunctionEnd
 
 Section "Installer Section"
   SetOutPath $INSTDIR
@@ -52,8 +85,19 @@ Section "Installer Section"
   ; grant access to application packages
   Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
 
-  writeUninstaller "$INSTDIR\uninstall.exe"
+  !ifndef INNER
+    File "uninstall.exe"
+  !endif
 SectionEnd
+
+!ifdef INNER
+
+Function un.onInit
+  ${{If}} ${{RunningX64}}
+    SetRegView 64
+  ${{EndIf}}
+  !insertmacro MULTIUSER_UNINIT
+FunctionEnd
 
 Section un.UninstallSection
   DeleteRegKey SHCTX "SOFTWARE\Microsoft\Spelling\Spellers\Divvun"
@@ -64,18 +108,4 @@ Section un.UninstallSection
   RMDir $INSTDIR
 SectionEnd
 
-!finalize '{sign_tool}'
-
-Function .onInit
-  ${{If}} ${{RunningX64}}
-    SetRegView 64
-  ${{EndIf}}
-  !insertmacro MULTIUSER_INIT
-FunctionEnd
-
-Function un.onInit
-  ${{If}} ${{RunningX64}}
-    SetRegView 64
-  ${{EndIf}}
-  !insertmacro MULTIUSER_UNINIT
-FunctionEnd
+!endif

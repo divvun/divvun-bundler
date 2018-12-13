@@ -53,7 +53,7 @@ pub fn create_installer_speller(
 					build,
 					pfx_path,
 					sign_pfx_password,
-					user,
+					output_dir,
 				)
 				.as_bytes(),
 			)
@@ -73,6 +73,7 @@ pub fn create_installer_speller(
 	info!("Building installer binary...");
 
 	let output = wine_cmd!(nsis)
+		.current_dir(output_dir)
 		.arg(format!(
 			"/XOutFile {}\\installer.exe",
 			output_dir.to_str().unwrap()
@@ -151,6 +152,7 @@ pub fn create_installer_spellchecker(
 	info!("Building installer binary..");
 
 	let output = wine_cmd!(nsis)
+		.current_dir(output_dir)
 		.arg(format!(
 			"/XOutFile {}\\installer.exe",
 			output_dir.to_str().unwrap()
@@ -181,7 +183,12 @@ pub fn create_installer_spellchecker(
 	.expect("to rename installer executable");
 }
 
-fn nsis_setup_signtool(app_name: &str, pfx_path: &Path, sign_pfx_password: &str) -> String {
+fn nsis_setup_signtool(
+	app_name: &str,
+	pfx_path: &Path,
+	sign_pfx_password: &str,
+	file_name: &str,
+) -> String {
 	let signtool_path = get_signtool_path();
 	let pfx_path_wine = wine_path(pfx_path).expect("valid PFX path");
 	if cfg!(windows) {
@@ -190,11 +197,12 @@ fn nsis_setup_signtool(app_name: &str, pfx_path: &Path, sign_pfx_password: &str)
 			 /t http://timestamp.verisign.com/scripts/timstamp.dll \
 			 /f \"{pfx_path}\" \
 			 /p \"{sign_pfx_password}\" \
-			 /d \"{app_name}\" installer.exe",
+			 /d \"{app_name}\" {file_name}",
 			pfx_path = pfx_path_wine,
 			app_name = app_name,
 			sign_pfx_password = sign_pfx_password,
-			signtool_path = signtool_path
+			signtool_path = signtool_path,
+			file_name = file_name
 		)
 	} else {
 		format!(
@@ -203,12 +211,13 @@ fn nsis_setup_signtool(app_name: &str, pfx_path: &Path, sign_pfx_password: &str)
 			 -pass \"{sign_pfx_password}\" \
 			 -n \"{app_name}\" \
 			 -t http://timestamp.verisign.com/scripts/timstamp.dll \
-			 -in installer.exe \
-			 -out signed && del installer.exe && move signed installer.exe",
+			 -in {file_name} \
+			 -out signed && del {file_name} && move signed {file_name}",
 			pfx_path = pfx_path_wine,
 			app_name = app_name,
 			sign_pfx_password = sign_pfx_password,
-			signtool_path = signtool_path
+			signtool_path = signtool_path,
+			file_name = file_name
 		)
 	}
 }
@@ -237,10 +246,25 @@ fn make_nsi_speller(
 	build: u64,
 	pfx_path: Option<&Path>,
 	sign_pfx_password: Option<String>,
-	user_installer: bool,
+	output_dir: &Path,
 ) -> String {
 	let sign_tool = match pfx_path {
-		Some(_) => nsis_setup_signtool(app_name, pfx_path.unwrap(), &sign_pfx_password.unwrap()),
+		Some(_) => nsis_setup_signtool(
+			app_name,
+			pfx_path.unwrap(),
+			&sign_pfx_password.as_ref().unwrap(),
+			"installer.exe",
+		),
+		None => "".to_string(),
+	};
+
+	let sign_tool_uninstaller = match pfx_path {
+		Some(_) => nsis_setup_signtool(
+			app_name,
+			pfx_path.unwrap(),
+			&sign_pfx_password.unwrap(),
+			"uninstall.exe",
+		),
 		None => "".to_string(),
 	};
 
@@ -248,7 +272,8 @@ fn make_nsi_speller(
 		include_str!("./win-speller.nsi"),
 		app_name = app_name,
 		bcp47code = bcp47code,
-		sign_tool = sign_tool
+		sign_tool = sign_tool,
+		sign_tool_uninstaller = sign_tool_uninstaller
 	)
 }
 
@@ -262,7 +287,22 @@ fn make_nsi_spellchecker(
 	user_installer: bool,
 ) -> String {
 	let sign_tool = match pfx_path {
-		Some(_) => nsis_setup_signtool(app_name, pfx_path.unwrap(), &sign_pfx_password.unwrap()),
+		Some(_) => nsis_setup_signtool(
+			app_name,
+			pfx_path.unwrap(),
+			&sign_pfx_password.as_ref().unwrap(),
+			"installer.exe",
+		),
+		None => "".to_string(),
+	};
+
+	let sign_tool_uninstaller = match pfx_path {
+		Some(_) => nsis_setup_signtool(
+			app_name,
+			pfx_path.unwrap(),
+			&sign_pfx_password.unwrap(),
+			"uninstall.exe",
+		),
 		None => "".to_string(),
 	};
 
@@ -271,7 +311,8 @@ fn make_nsi_spellchecker(
 		app_name = app_name,
 		version = version,
 		build = build,
-		sign_tool = sign_tool
+		sign_tool = sign_tool,
+		sign_tool_uninstaller = sign_tool_uninstaller
 	)
 }
 
