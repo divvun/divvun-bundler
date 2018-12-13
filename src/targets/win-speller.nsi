@@ -43,11 +43,11 @@ Section "Installer Section"
 
   ; update registry
   WriteRegStr HKLM "SOFTWARE\Microsoft\Spelling\Spellers\Divvun" "CLSID" "${{CLSID}}"
-  WriteRegStr HKLM "SOFTWARE\Classes\CLSID" "${{CLSID}}" "WinDivvun Spell Checking Service"
+  WriteRegStr HKLM "SOFTWARE\Classes\CLSID\${{CLSID}}" "" "WinDivvun Spell Checking Service"
   WriteRegStr HKLM "SOFTWARE\Classes\CLSID\${{CLSID}}" "AppId" "${{CLSID}}"
-  WriteRegStr HKLM "SOFTWARE\Classes\CLSID\${{CLSID}}" "InProcServer32" "$INSTDIR\${{DLL_NAME}}"
+  WriteRegStr HKLM "SOFTWARE\Classes\CLSID\${{CLSID}}\InProcServer32" "" "$INSTDIR\${{DLL_NAME}}"
   WriteRegStr HKLM "SOFTWARE\Classes\CLSID\${{CLSID}}\InProcServer32" "ThreadingModel" "Both"
-  WriteRegStr HKLM "SOFTWARE\Classes\CLSID\${{CLSID}}" "Version" "{version}.{build}"
+  WriteRegStr HKLM "SOFTWARE\Classes\CLSID\${{CLSID}}\Version" "" "{version}.{build}"
 
   ; grant access to application packages
   Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
@@ -56,7 +56,7 @@ Section "Installer Section"
 SectionEnd
 
 Section un.UninstallSection
-  DeleteRegKey HKLM "SOFTWARE\Microsoft\Spelling\Spellers\Divvun\CLSID"
+  DeleteRegKey HKLM "SOFTWARE\Microsoft\Spelling\Spellers\Divvun"
   DeleteRegKey HKLM "SOFTWARE\Classes\CLSID\${{CLSID}}"
   Delete $INSTDIR\${{DLL_NAME}}
   Delete $INSTDIR\uninstall.exe
