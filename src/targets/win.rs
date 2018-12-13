@@ -73,7 +73,10 @@ pub fn create_installer_speller(
 	info!("Building installer binary...");
 
 	let output = wine_cmd!(nsis)
-		.arg(format!("/XOutFile {}\\installer.exe", output_dir.to_str().unwrap()))
+		.arg(format!(
+			"/XOutFile {}\\installer.exe",
+			output_dir.to_str().unwrap()
+		))
 		.arg(&nsis_path)
 		.output()
 		.expect("process to spawn");
@@ -117,7 +120,6 @@ pub fn create_installer_spellchecker(
 		.join("makensis.exe");
 	let installer_path = output_dir.join("installer.nsi");
 
-
 	let app_name = "WinDivvun";
 	let sign_pfx_password = pfx_path.as_ref().map(|_| get_pfx_password());
 
@@ -149,7 +151,10 @@ pub fn create_installer_spellchecker(
 	info!("Building installer binary..");
 
 	let output = wine_cmd!(nsis)
-		.arg(format!("/XOutFile {}\\installer.exe", output_dir.to_str().unwrap()))
+		.arg(format!(
+			"/XOutFile {}\\installer.exe",
+			output_dir.to_str().unwrap()
+		))
 		.arg(&nsis_path)
 		.output()
 		.expect("process to spawn");
@@ -234,64 +239,13 @@ fn make_nsi_speller(
 	sign_pfx_password: Option<String>,
 	user_installer: bool,
 ) -> String {
-
 	let sign_tool = match pfx_path {
-		Some(_) => {
-			nsis_setup_signtool(app_name, pfx_path.unwrap(), &sign_pfx_password.unwrap())
-		}
+		Some(_) => nsis_setup_signtool(app_name, pfx_path.unwrap(), &sign_pfx_password.unwrap()),
 		None => "".to_string(),
 	};
 
 	format!(
-		r#"!define MULTIUSER_EXECUTIONLEVEL Highest
-!define MULTIUSER_MUI
-!define MULTIUSER_INSTALLMODE_COMMANDLINE
-!define MULTIUSER_INSTALLMODE_INSTDIR WinDivvun\Spellers\{bcp47code}
-
-!include MultiUser.nsh
-!include MUI2.nsh
-
-Name "{app_name}"
-Outfile installer.exe
-
-!insertmacro MUI_PAGE_WELCOME
-!insertmacro MULTIUSER_PAGE_INSTALLMODE
-!insertmacro MUI_PAGE_INSTFILES
-!insertmacro MUI_PAGE_FINISH
-
-!insertmacro MUI_UNPAGE_WELCOME
-!insertmacro MUI_UNPAGE_CONFIRM
-!insertmacro MUI_UNPAGE_INSTFILES
-!insertmacro MUI_UNPAGE_FINISH
-
-!insertmacro MUI_LANGUAGE English
-
-Function .onInit
-  !insertmacro MULTIUSER_INIT
-FunctionEnd
-
-Section "Installer Section"
-  SetOutPath $INSTDIR
-
-  ; copy spellchecker
-  File /oname={bcp47code}.zhfst speller.zhfst
-
-  ; grant access to application packages
-  Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
-
-  writeUninstaller "$INSTDIR\uninstall.exe"
-SectionEnd
-
-Function un.onInit
-  !insertmacro MULTIUSER_UNINIT
-FunctionEnd
-
-Section un.UninstallSection
-  Delete $INSTDIR
-SectionEnd
-
-!finalize '{sign_tool}'
-"#,
+		include_str!("./win-speller.nsi"),
 		app_name = app_name,
 		bcp47code = bcp47code,
 		sign_tool = sign_tool
@@ -307,16 +261,13 @@ fn make_nsi_spellchecker(
 	sign_pfx_password: Option<String>,
 	user_installer: bool,
 ) -> String {
-
 	let sign_tool = match pfx_path {
-		Some(_) => {
-			nsis_setup_signtool(app_name, pfx_path.unwrap(), &sign_pfx_password.unwrap())
-		}
+		Some(_) => nsis_setup_signtool(app_name, pfx_path.unwrap(), &sign_pfx_password.unwrap()),
 		None => "".to_string(),
 	};
 
 	format!(
-		include_str!("./win-speller.nsi"),
+		include_str!("./win-spellchecker.nsi"),
 		app_name = app_name,
 		version = version,
 		build = build,
