@@ -59,7 +59,7 @@ Section "Installer Section"
   File /oname={bcp47code}.zhfst speller.zhfst
 
   ; grant access to application packages
-  Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
+  nsExec::Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
 
   !ifndef INNER
     File "uninstall.exe"

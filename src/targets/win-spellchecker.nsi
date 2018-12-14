@@ -83,7 +83,7 @@ Section "Installer Section"
   WriteRegStr SHCTX "SOFTWARE\Classes\CLSID\${{CLSID}}\Version" "" "{version}.{build}"
 
   ; grant access to application packages
-  Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
+  nsExec::Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
 
   !ifndef INNER
     File "uninstall.exe"

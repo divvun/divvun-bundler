@@ -116,9 +116,15 @@ pub fn create_installer_spellchecker(
 ) {
 	fs::create_dir_all(output_dir).expect("output dir to be created");
 	let installer_name = format!("windivvun-{}.exe", version);
-	let nsis = get_nsis_path()
-		.expect("Valid NSIS path")
-		.join("makensis.exe");
+
+	let nsis = match get_nsis_path() {
+		Some(v) => v.join("makensis.exe"),
+		None => {
+			eprintln!("NSIS 3 not found, and NSIS_PATH not set.");
+			return;
+		}
+	};
+
 	let installer_path = output_dir.join("installer.nsi");
 
 	let app_name = "WinDivvun";
@@ -255,7 +261,7 @@ fn make_nsi_speller(
 			&sign_pfx_password.as_ref().unwrap(),
 			"installer.exe",
 		),
-		None => "".to_string(),
+		None => "rem".to_string(),
 	};
 
 	let sign_tool_uninstaller = match pfx_path {
@@ -265,7 +271,7 @@ fn make_nsi_speller(
 			&sign_pfx_password.unwrap(),
 			"uninstall.exe",
 		),
-		None => "".to_string(),
+		None => "rem".to_string(),
 	};
 
 	format!(
@@ -293,7 +299,7 @@ fn make_nsi_spellchecker(
 			&sign_pfx_password.as_ref().unwrap(),
 			"installer.exe",
 		),
-		None => "".to_string(),
+		None => "rem".to_string(),
 	};
 
 	let sign_tool_uninstaller = match pfx_path {
@@ -303,7 +309,7 @@ fn make_nsi_spellchecker(
 			&sign_pfx_password.unwrap(),
 			"uninstall.exe",
 		),
-		None => "".to_string(),
+		None => "rem".to_string(),
 	};
 
 	format!(
