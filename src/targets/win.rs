@@ -20,20 +20,19 @@ macro_rules! wine_cmd {
 
 pub fn create_installer_speller(
 	app_id: &str,
+	app_name: &str,
 	bcp47code: &str,
 	version: &str,
 	build: u64,
 	zhfst_file: &Path,
 	output_dir: &Path,
-	pfx_path: Option<&Path>,
-	user: bool,
+	pfx_path: Option<&Path>
 ) {
 	fs::create_dir_all(output_dir).expect("output dir to be created");
 
 	let zhfst_file = zhfst_file.to_str().expect("valid zhfst path");
 	let installer_path = output_dir.join("installer.nsi");
 
-	let app_name = format!("Divvun Spellers - Speller Dictionary {}", bcp47code);
 	let sign_pfx_password = pfx_path.as_ref().map(|_| get_pfx_password());
 
 	let speller_path = output_dir.join("speller.zhfst");
@@ -107,12 +106,12 @@ pub fn create_installer_speller(
 
 pub fn create_installer_spellchecker(
 	app_id: &str,
+	app_name: &str,
 	dll_path: &Path,
 	version: &str,
 	build: u64,
 	output_dir: &Path,
-	pfx_path: Option<&Path>,
-	user: bool,
+	pfx_path: Option<&Path>
 ) {
 	fs::create_dir_all(output_dir).expect("output dir to be created");
 	let installer_name = format!("windivvun-{}.exe", version);
@@ -127,7 +126,6 @@ pub fn create_installer_spellchecker(
 
 	let installer_path = output_dir.join("installer.nsi");
 
-	let app_name = "WinDivvun";
 	let sign_pfx_password = pfx_path.as_ref().map(|_| get_pfx_password());
 
 	let dll_path_out = output_dir.join("windivvun.dll");
@@ -145,8 +143,7 @@ pub fn create_installer_spellchecker(
 					version,
 					build,
 					pfx_path,
-					sign_pfx_password,
-					user,
+					sign_pfx_password
 				)
 				.as_bytes(),
 			)
@@ -276,10 +273,13 @@ fn make_nsi_speller(
 
 	format!(
 		include_str!("./win-speller.nsi"),
+		app_id = app_id,
 		app_name = app_name,
 		bcp47code = bcp47code,
 		sign_tool = sign_tool,
-		sign_tool_uninstaller = sign_tool_uninstaller
+		sign_tool_uninstaller = sign_tool_uninstaller,
+		version = version,
+		build = build,
 	)
 }
 
@@ -289,8 +289,7 @@ fn make_nsi_spellchecker(
 	version: &str,
 	build: u64,
 	pfx_path: Option<&Path>,
-	sign_pfx_password: Option<String>,
-	user_installer: bool,
+	sign_pfx_password: Option<String>
 ) -> String {
 	let sign_tool = match pfx_path {
 		Some(_) => nsis_setup_signtool(
@@ -314,6 +313,7 @@ fn make_nsi_spellchecker(
 
 	format!(
 		include_str!("./win-spellchecker.nsi"),
+		app_id = app_id,
 		app_name = app_name,
 		version = version,
 		build = build,

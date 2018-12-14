@@ -1,4 +1,10 @@
-Name "{app_name}"
+!define COMPANY_NAME "Divvun"
+!define APP_ID "{app_id}"
+!define APP_URL "http://divvun.no/"
+!define APP_NAME "{app_name}"
+!define VERSION "{version}.{build}"
+
+Name "${{APP_NAME}}"
 Unicode true
 SetCompressor /SOLID lzma
 
@@ -58,10 +64,30 @@ Section "Installer Section"
   ; copy spellchecker
   File /oname={bcp47code}.zhfst speller.zhfst
 
-  ; grant access to application packages
-  nsExec::Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
-
   !ifndef INNER
+    ; grant access to application packages
+    nsExec::Exec 'icacls "$INSTDIR" /grant "ALL APPLICATION PACKAGES":R /T'
+
+    ; update uninstall information
+    # Registry information for add/remove programs
+    WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "DisplayName" "${{APP_NAME}}"
+    WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
+    WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "QuietUninstallString" "$\"$INSTDIR\uninstall.exe$\" /S"
+    WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "InstallLocation" "$\"$INSTDIR$\""
+    # WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "DisplayIcon" "$\"$INSTDIR\logo.ico$\""
+    WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "Publisher" "${{COMPANY_NAME}}"
+    WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "HelpLink" "${{APP_URL}}"
+    # WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "URLUpdateInfo" "$\"${{UPDATEURL}}$\""
+    # WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "URLInfoAbout" "$\"${{ABOUTURL}}$\""
+    WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "DisplayVersion" "${{VERSION}}"
+    # WriteRegDWORD SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "VersionMajor" ${{VERSIONMAJOR}}
+    # WriteRegDWORD SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "VersionMinor" ${{VERSIONMINOR}}
+    # There is no option for modifying or repairing the install
+    WriteRegDWORD SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "NoModify" 1
+    WriteRegDWORD SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "NoRepair" 1
+    # Set the INSTALLSIZE constant (!defined at the top of this script) so Add/Remove Programs can accurately report the size
+    # WriteRegDWORD SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}" "EstimatedSize" ${{INSTALLSIZE}}
+  
     File "uninstall.exe"
   !endif
 SectionEnd
@@ -78,6 +104,8 @@ Section un.UninstallSection
   RMDir $INSTDIR
   RMDir $INSTDIR\..
   RMDir $INSTDIR\..\..
+
+  DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}"
 SectionEnd
 
 !endif

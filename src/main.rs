@@ -23,6 +23,7 @@ fn main() {
 			possible_value("win") possible_value("osx")
 			"Target platform")
 		(@arg APP_ID: --uuid +takes_value "App UUID (Windows only)")
+		(@arg APP_NAME: -H --human +takes_value "Human name of the installer")
 		(@arg SIGN: -R "Whether to sign the created installer")
 		(@arg CERTIFICATE: -c +takes_value "Certificate to be used for signing")
 		(@arg OUTPUT: -o --output +takes_value default_value(".") "Output directory")
@@ -66,6 +67,8 @@ fn main() {
 	let target = matches.value_of("TARGET");
 	let user = matches.is_present("USER");
 
+	let app_name = matches.value_of("APP_NAME").expect("a valid app name");
+
 	let package_version = matches.value_of("PACKAGE_VERSION").unwrap();
 	let package_build = matches
 		.value_of("PACKAGE_BUILD")
@@ -103,13 +106,13 @@ fn main() {
 					println!("Building Windows installer for {} speller", lang_tag);
 					targets::win::create_installer_speller(
 						app_id,
+						app_name,
 						lang_tag,
 						package_version,
 						package_build,
 						zhfst_path,
 						output_path,
-						certificate_path,
-						user,
+						certificate_path
 					);
 				}
 				_ => (),
@@ -123,12 +126,12 @@ fn main() {
 				println!("Building Windows installer for spell checker...");
 				targets::win::create_installer_spellchecker(
 					app_id,
+					app_name,
 					dll_path,
 					package_version,
 					package_build,
 					output_path,
-					certificate_path,
-					user,
+					certificate_path
 				);
 			}
 			Some("osx") => unimplemented!(),
