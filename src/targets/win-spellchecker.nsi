@@ -31,6 +31,7 @@ RequestExecutionLevel admin
 
 !insertmacro MUI_UNPAGE_WELCOME
 !insertmacro MUI_UNPAGE_CONFIRM
+UninstPage Custom un.LockedListShow
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_UNPAGE_FINISH
 
@@ -122,6 +123,16 @@ Function un.onInit
     SetRegView 64
   ${{EndIf}}
   !insertmacro MULTIUSER_UNINIT
+FunctionEnd
+
+Function un.LockedListShow
+  # !insertmacro MUI_HEADER_TEXT `LockedList Test` `Using AddModule and notepad.exe`
+  ${{If}} ${{RunningX64}}
+    File /oname=$PLUGINSDIR\LockedList64.dll `${{NSISDIR}}\Plugins\LockedList64.dll`
+  ${{EndIf}}
+  LockedList::AddModule "${{DLL_NAME}}" 
+  LockedList::Dialog /autoclose `` `` `` `Close All`
+  Pop $R0
 FunctionEnd
 
 Section un.UninstallSection
