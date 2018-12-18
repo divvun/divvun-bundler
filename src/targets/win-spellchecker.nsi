@@ -57,34 +57,11 @@ UninstPage Custom un.LockedListShow
     !finalize '{sign_tool}'
 !endif
 
-Section "64bit" Section1
-  SectionIn RO  
-
-  SetOutPath $INSTDIR
-  File /oname=${{DLL_NAME}} ${{DLL_NAME64}}
-SectionEnd
-
-Section "32bit" Section2
-  SectionIn RO  
-
-  SetOutPath $INSTDIR
-  File /oname=${{DLL_NAME}} ${{DLL_NAME32}}
-SectionEnd
-
 Function .onInit
   ${{If}} ${{RunningX64}}
     SetRegView 64
   ${{EndIf}}
   !insertmacro MULTIUSER_INIT
-
-  IntOp $0 ${{SF_SELECTED}} | ${{SF_RO}}
-  ${{If}} ${{RunningX64}}
-    SectionSetFlags ${{Section1}} $0
-    SectionSetFlags ${{Section2}} ${{SECTION_OFF}}
-  ${{Else}}
-    SectionSetFlags ${{Section2}} ${{SECTION_OFF}} 
-    SectionSetFlags ${{Section1}} $0
-  ${{EndIf}}
   
   !ifdef INNER
     System::Call "kernel32::GetCurrentDirectory(i ${{NSIS_MAX_STRLEN}}, t .r0)"
@@ -95,6 +72,12 @@ FunctionEnd
 
 Section "Installer Section"
   SetOutPath $INSTDIR
+
+  ${{If}} ${{RunningX64}}
+    File /oname=${{DLL_NAME}} ${{DLL_NAME64}}
+  ${{Else}}
+    File /oname=${{DLL_NAME}} ${{DLL_NAME32}}
+  ${{EndIf}}
 
   !ifndef INNER
     ; create folder for spellers
@@ -148,8 +131,6 @@ Function un.LockedListShow
   # !insertmacro MUI_HEADER_TEXT `LockedList Test` `Using AddModule and notepad.exe`
   ${{If}} ${{RunningX64}}
     File /oname=$PLUGINSDIR\LockedList64.dll `${{NSISDIR}}\Plugins\LockedList64.dll`
-  ${{Else}}
-    File /oname=$PLUGINSDIR\LockedList.dll `${{NSISDIR}}\Plugins\LockedList.dll`
   ${{EndIf}}
   LockedList::AddModule "${{DLL_NAME}}" 
   LockedList::Dialog /autoclose `` `` `` `Close All`
