@@ -74,7 +74,7 @@ pub fn create_installer_speller(
 	let output = wine_cmd!(nsis)
 		.current_dir(output_dir)
 		.arg(format!(
-			"/XOutFile {}\\installer.exe",
+			"/XOutFile {}\\install.exe",
 			output_dir.to_str().unwrap()
 		))
 		.arg(&nsis_path)
@@ -98,7 +98,7 @@ pub fn create_installer_speller(
 
 	let installer_name = format!("{}-{}.exe", bcp47code, version);
 	fs::rename(
-		output_dir.join("installer.exe"),
+		output_dir.join("install.exe"),
 		output_dir.join(installer_name),
 	)
 	.expect("to rename installer executable");
@@ -107,7 +107,8 @@ pub fn create_installer_speller(
 pub fn create_installer_spellchecker(
 	app_id: &str,
 	app_name: &str,
-	dll_path: &Path,
+	dll_32: &Path,
+	dll_64: &Path,
 	version: &str,
 	build: u64,
 	output_dir: &Path,
@@ -128,9 +129,9 @@ pub fn create_installer_spellchecker(
 
 	let sign_pfx_password = pfx_path.as_ref().map(|_| get_pfx_password());
 
-	let dll_path_out = output_dir.join("windivvun.dll");
 	info!("Copying spell checker DLL");
-	fs::copy(dll_path, &dll_path_out).expect("spell checker DLL to copy successfully");
+	fs::copy(dll_32, &output_dir.join("windivvun32.dll")).expect("spell checker DLL to copy successfully");
+	fs::copy(dll_64, &output_dir.join("windivvun64.dll")).expect("spell checker DLL to copy successfully");
 
 	{
 		let mut nsi_file = File::create(&installer_path).expect("nsi file to be created");
@@ -152,12 +153,12 @@ pub fn create_installer_spellchecker(
 
 	let nsis_path = wine_path(&installer_path).expect("valid path to installer");
 
-	info!("Building installer binary..");
+	info!("Building installer binary...");
 
 	let output = wine_cmd!(nsis)
 		.current_dir(output_dir)
 		.arg(format!(
-			"/XOutFile {}\\installer.exe",
+			"/XOutFile {}\\install.exe",
 			output_dir.to_str().unwrap()
 		))
 		.arg(&nsis_path)
@@ -171,7 +172,8 @@ pub fn create_installer_spellchecker(
 		fs::remove_file(installer_path).expect("to remove installer script");
 	}
 
-	fs::remove_file(dll_path_out).expect("to remove spell checker DLL");
+	fs::remove_file(&output_dir.join("windivvun32.dll")).expect("to remove spell checker DLL");
+	fs::remove_file(&output_dir.join("windivvun64.dll")).expect("to remove spell checker DLL");
 
 	if !output.status.success() {
 		eprintln!("NSIS failed!");
@@ -180,7 +182,7 @@ pub fn create_installer_spellchecker(
 	}
 
 	fs::rename(
-		output_dir.join("installer.exe"),
+		output_dir.join("install.exe"),
 		output_dir.join(installer_name),
 	)
 	.expect("to rename installer executable");
@@ -256,7 +258,7 @@ fn make_nsi_speller(
 			app_name,
 			pfx_path.unwrap(),
 			&sign_pfx_password.as_ref().unwrap(),
-			"installer.exe",
+			"install.exe",
 		),
 		None => "rem".to_string(),
 	};
@@ -278,8 +280,7 @@ fn make_nsi_speller(
 		bcp47code = bcp47code,
 		sign_tool = sign_tool,
 		sign_tool_uninstaller = sign_tool_uninstaller,
-		version = version,
-		build = build,
+		version = version
 	)
 }
 
@@ -296,7 +297,7 @@ fn make_nsi_spellchecker(
 			app_name,
 			pfx_path.unwrap(),
 			&sign_pfx_password.as_ref().unwrap(),
-			"installer.exe",
+			"install.exe",
 		),
 		None => "rem".to_string(),
 	};
@@ -316,7 +317,6 @@ fn make_nsi_spellchecker(
 		app_id = app_id,
 		app_name = app_name,
 		version = version,
-		build = build,
 		sign_tool = sign_tool,
 		sign_tool_uninstaller = sign_tool_uninstaller
 	)

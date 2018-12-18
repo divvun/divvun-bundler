@@ -2,7 +2,7 @@
 !define APP_ID "{app_id}"
 !define APP_URL "http://divvun.no/"
 !define APP_NAME "{app_name}"
-!define VERSION "{version}.{build}"
+!define VERSION "{version}"
 
 Name "${{APP_NAME}}"
 Unicode true
@@ -17,6 +17,7 @@ SetCompressor /SOLID lzma
 
 !include MultiUser.nsh
 !include MUI2.nsh
+!include x64.nsh
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MULTIUSER_PAGE_INSTALLMODE
@@ -43,12 +44,15 @@ SetCompressor /SOLID lzma
     ; sign the uninstaller
     !system '{sign_tool_uninstaller}' = 0
 
-    OutFile installer.exe
+    OutFile install.exe
 
     !finalize '{sign_tool}'
 !endif
 
 Function .onInit
+  ${{If}} ${{RunningX64}}
+    SetRegView 64
+  ${{EndIf}}
   !insertmacro MULTIUSER_INIT
 
   !ifdef INNER
@@ -95,15 +99,16 @@ SectionEnd
 !ifdef INNER
 
 Function un.onInit
+  ${{If}} ${{RunningX64}}
+    SetRegView 64
+  ${{EndIf}}
   !insertmacro MULTIUSER_UNINIT
 FunctionEnd
 
 Section un.UninstallSection
-  Delete $INSTDIR\uninstall.exe
-  Delete $INSTDIR\{bcp47code}.zhfst
+  Delete /REBOOTOK $INSTDIR\{bcp47code}.zhfst
+  Delete /REBOOTOK $INSTDIR\uninstall.exe
   RMDir $INSTDIR
-  RMDir $INSTDIR\..
-  RMDir $INSTDIR\..\..
 
   DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${{APP_ID}}"
 SectionEnd

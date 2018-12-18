@@ -40,7 +40,8 @@ fn main() {
 		)
 		(@subcommand checker =>
 			(about: "Build spell checker installers")
-			(@arg PACKAGE: -P +takes_value +required "Path to the DLL or package")
+			(@arg DLL_32: --a32 +takes_value +required "Path to the 32bit DLL or package")
+			(@arg DLL_64: --a64 +takes_value +required "Path to the 64bit DLL or package")
 		)
 	)
 	.get_matches();
@@ -121,13 +122,15 @@ fn main() {
 		("checker", Some(sub_c)) => match target {
 			Some("win") => {
 				let app_id = matches.value_of("APP_ID").expect("valid UUID");
-				let dll_path = Path::new(sub_c.value_of("PACKAGE").expect("valid DLL path"));
+				let dll_32 = Path::new(sub_c.value_of("DLL_32").expect("valid DLL path"));
+				let dll_64 = Path::new(sub_c.value_of("DLL_64").expect("valid DLL path"));
 
 				println!("Building Windows installer for spell checker...");
 				targets::win::create_installer_spellchecker(
 					app_id,
 					app_name,
-					dll_path,
+					dll_32,
+					dll_64,
 					package_version,
 					package_build,
 					output_path,
